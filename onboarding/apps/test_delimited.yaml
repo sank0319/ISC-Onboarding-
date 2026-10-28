@@ -1,0 +1,18 @@
+apps:
+  - appName: Test-Delimited-App
+    connectorType: delimited
+    owner: sanson_seah@kpmg.com.sg
+    application: Test Delimited App
+    delimited:
+      accountFile: onboarding/data/delimited/test-app.csv
+      schema:
+        identityAttribute: EmployeeID
+        displayAttribute: UserName
+        entitlementColumns: [Role]
+        multiValued: [Role]
+      correlation:
+        - identityAttr: uid
+          accountAttr: UserName
+    accessProfiles:
+      - name: Test Delimited App - Approver
+        entitlementValues: [Approver]
