@@ -268,9 +268,12 @@ class Onboarder:
 
     def apply_schema(self, source_id, sch, columns):
         schemas = self.isc.request("GET", f"/v3/sources/{source_id}/schemas") or []
-        acct = next((s for s in schemas if (s.get("nativeObjectType") or s.get("name", "")).lower() == "account"), None)
+        log.info("  schemas on source: %s", [(s.get("name"), s.get("nativeObjectType")) for s in schemas])
+        acct = next((s for s in schemas if (s.get("nativeObjectType") or s.get("name", "")).lower() in ("account", "user")), None)
+        if not acct and len(schemas) == 1:
+            acct = schemas[0]
         if not acct:
-            raise ISCError("Account schema not found on source")
+            raise ISCError(f"Account schema not found on source (found: {[s.get('name') for s in schemas]})")
         ent_cols = set(sch.get("entitlementColumns") or [])
         multi = set(sch.get("multiValued", list(ent_cols)))
         needed = {sch["identityAttribute"], sch["displayAttribute"]} | ent_cols
