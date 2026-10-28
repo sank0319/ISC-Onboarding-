@@ -1,0 +1,36 @@
+# One file can hold a bulk list of apps. Files with a single app (no 'apps:' key) also work.
+apps:
+  - appName: Claims-Portal
+    connectorType: sqlloader
+    owner: jdoe@example.com
+    template: default
+    sqlloader:
+      connectorAttributes:
+        file: /data/claims/accounts.csv     # app-specific overrides merged onto the template
+    application: Claims Portal
+    accessProfiles:                          # optional for non-AD
+      - name: Claims Portal - Approver
+        entitlementValues: [APPROVER]
+
+  - appName: Finance-Portal
+    connectorType: delimited
+    owner: asmith
+    delimited:
+      accountFile: onboarding/data/delimited/finance-portal.csv
+      schema:
+        identityAttribute: EmployeeID
+        displayAttribute: UserName
+        entitlementColumns: [Role]
+        multiValued: [Role]
+      correlation:                           # requires human sign-off in PR review
+        - identityAttr: employeeNumber
+          accountAttr: EmployeeID
+
+  - appName: Treasury
+    connectorType: ad
+    owner: asmith
+    application: Treasury
+    ad:
+      sourceName: Active Directory
+      entitlementExport: onboarding/data/ad/treasury-groups.csv
+      scopeRegex: "OU=Treasury"              # optional extra scope on distinguishedName

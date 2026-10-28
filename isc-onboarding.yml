@@ -1,0 +1,84 @@
+name: ISC Bulk Onboarding
+
+on:
+  pull_request:
+    paths: ["onboarding/**"]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "ISC tenant (GitHub environment)"
+        type: choice
+        options: [sandbox, production]
+        default: sandbox
+      apps:
+        description: "Glob of app config files"
+        default: "onboarding/apps/*.yaml"
+      dry_run:
+        description: "Plan only - no writes to ISC"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: isc-onboarding-${{ inputs.target || 'pr' }}
+  cancel-in-progress: false
+
+env:
+  APPS_GLOB: ${{ inputs.apps || 'onboarding/apps/*.yaml' }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Validate app configs (no API calls)
+        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" --validate-only
+
+  # On every PR: dry-run against sandbox so reviewers see exactly what will be created
+  plan:
+    if: github.event_name == 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: sandbox-readonly
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Dry-run plan
+        env:
+          ISC_TENANT: ${{ secrets.ISC_TENANT }}
+          ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
+          ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
+        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" --dry-run
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: plan-report, path: onboarding-report.json }
+
+  # Manual run: sandbox or production. Protect the 'production' environment with required reviewers.
+  apply:
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Onboard apps
+        env:
+          ISC_TENANT: ${{ secrets.ISC_TENANT }}
+          ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
+          ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
+          DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" $DRY_RUN_FLAG
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: onboarding-report-${{ inputs.target }}, path: onboarding-report.json }

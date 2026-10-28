@@ -1,0 +1,40 @@
+# Global defaults for ISC bulk onboarding
+deleteThreshold: 10
+requestCommentRequired: true
+updateExistingAccessProfiles: false   # true = re-apply entitlements/approvals on existing APs
+aggregationTimeoutMinutes: 30
+clusterId: ""                          # VA cluster ID for direct-connect sources (SQL Loader)
+
+connectors:
+  delimited: delimited-file-angularsc  # verify with GET /v3/connectors on your tenant
+
+delimitedConnectorAttributes:
+  delimiter: ","
+  hasHeader: true
+
+# ---------------- AD ----------------
+# Per in-scope AD group: governance group (named after the AP) <- approvers from extension attribute,
+# access profile approvals = L1 MANAGER -> L2 that governance group.
+ad:
+  valueColumn: distinguishedName       # matched against entitlement 'value' in ISC
+  nameColumn: cn                       # used in the access profile name
+  approvalAttribute: extensionAttribute10   # format: <<approver1@x.com; approver2@x.com>>
+  accessProfileNameTemplate: "{app} - {name}"   # governance group gets the same name
+  governanceGroupOwner: ""             # alias/email of GG owner (e.g. IAM service identity); empty = app owner
+  governanceGroupNameMaxLength: 128    # VERIFY tenant limit
+  syncRemoveGovernanceGroupMembers: false   # true = remove members not in the attribute (re-runs)
+
+# ---------------- SQL Loader templates ----------------
+# Tip: copy connector + connectorAttributes from a working SQL Loader source (GET /v3/sources/{id})
+sqlLoaderTemplates:
+  default:
+    connector: REPLACE_WITH_SQL_LOADER_SCRIPT_NAME
+    connectorAttributes: {}
+    schema:
+      identityAttribute: USER_ID
+      displayAttribute: USER_NAME
+      attributes: [USER_ID, USER_NAME, EMAIL, STATUS, ROLE]
+      entitlementColumns: [ROLE]
+    correlation:
+      - identityAttr: uid
+        accountAttr: USER_ID

@@ -1,0 +1,4 @@
+cn,distinguishedName,description,extensionAttribute10
+TRS-Payments-Maker,"CN=TRS-Payments-Maker,OU=Treasury,OU=Groups,DC=corp,DC=local",Payments maker,<<alice.tan@example.com; bob.lim@example.com>>
+TRS-Payments-Checker,"CN=TRS-Payments-Checker,OU=Treasury,OU=Groups,DC=corp,DC=local",Payments checker,<<carol.ng@example.com>>
+TRS-Readonly,"CN=TRS-Readonly,OU=Treasury,OU=Groups,DC=corp,DC=local",Read only,<<alice.tan@example.com;unknown.user@example.com>>
