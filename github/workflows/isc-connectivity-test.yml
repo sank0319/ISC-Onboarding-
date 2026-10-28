@@ -1,0 +1,29 @@
+name: ISC connectivity test
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: sandbox-readonly
+    env:
+      ISC_TENANT: ${{ secrets.ISC_TENANT }}
+      ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
+      ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
+      ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+    steps:
+      - name: Get token and list sources
+        run: |
+          BASE="${ISC_BASE_URL:-https://${ISC_TENANT}.api.identitynow.com}"
+          echo "Calling $BASE"
+          TOKEN=$(curl -sS -f -X POST "$BASE/oauth/token" \
+            -d grant_type=client_credentials \
+            -d client_id="$ISC_CLIENT_ID" \
+            -d client_secret="$ISC_CLIENT_SECRET" | jq -r .access_token)
+          echo "::add-mask::$TOKEN"
+          echo "Token received"
+          curl -sS -f -H "Authorization: Bearer $TOKEN" \
+            "$BASE/v3/sources?limit=5" | jq -r '.[].name'
