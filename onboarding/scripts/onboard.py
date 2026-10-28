@@ -351,6 +351,7 @@ class Onboarder:
         return (res["id"] if res else f"DRYRUN-{name}"), "created"
 
     def ensure_source_app(self, app_name, desc, owner, source, ap_ids):
+        desc = desc or f"{app_name} - created by the ISC onboarding pipeline"
         real_ids = [i for i in ap_ids if not i.startswith("DRYRUN")]
         existing = self.find_one("/beta/source-apps", app_name)
         if existing:
