@@ -304,7 +304,7 @@ class Onboarder:
         fh = open(file_path, "rb") if file_path else None
         try:
             files = {"file": (os.path.basename(file_path), fh, "text/csv")} if fh else None
-            res = self.isc.request("POST", f"/v3/sources/{source_id}/load-accounts",
+            res = self.isc.request("POST", f"/v2024/sources/{source_id}/load-accounts",
                                    files=files, data={"disableOptimization": "true"}, write=True)
         finally:
             if fh:
