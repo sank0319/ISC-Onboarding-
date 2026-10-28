@@ -77,6 +77,7 @@ jobs:
           ISC_TENANT: ${{ secrets.ISC_TENANT }}
           ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
           ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
+          ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
           DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" $DRY_RUN_FLAG
       - uses: actions/upload-artifact@v4
