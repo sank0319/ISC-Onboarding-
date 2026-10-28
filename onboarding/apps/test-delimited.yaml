@@ -1,7 +1,7 @@
 apps:
   - appName: Test-Delimited-App
     connectorType: delimited
-    owner: sanson_seah@kpmg.com.sg
+    owner: Sanson.Seah
     application: Test Delimited App
     delimited:
       accountFile: onboarding/data/delimited/test-app.csv
