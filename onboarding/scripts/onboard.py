@@ -365,10 +365,11 @@ class Onboarder:
                 return
             app_id, current = res["id"], []
         merged = list(dict.fromkeys(current + real_ids))
-        self.isc.patch(f"/beta/source-apps/{app_id}", [
-            {"op": "replace", "path": "/accessProfiles", "value": merged},
-            {"op": "replace", "path": "/owner", "value": {"type": "IDENTITY", "id": owner["id"]}},
-            {"op": "replace", "path": "/enabled", "value": True}])
+        ops = [{"op": "replace", "path": "/owner", "value": {"type": "IDENTITY", "id": owner["id"]}},
+               {"op": "replace", "path": "/enabled", "value": True}]
+        if merged:
+            ops.insert(0, {"op": "replace", "path": "/accessProfiles", "value": merged})
+        self.isc.patch(f"/beta/source-apps/{app_id}", ops)
         log.info("  application '%s': %d access profiles attached", app_name, len(merged))
 
     # ----- handlers
@@ -378,20 +379,32 @@ class Onboarder:
             log.warning("  no entitlements found on source after aggregation")
         self.make_requestable(ents)
         result["entitlementsRequestable"] = len(ents)
-
         owner = self.identity_ref(app["owner"])
+
+        # 1. Application first - it does not depend on access profiles
+        if app.get("application"):
+            self.ensure_source_app(app["application"], app.get("description", ""),
+                                   owner, source, [])
+            result["application"] = app["application"]
+
+        # 2. Access profiles afterwards - a failure here keeps the application
         by_value = {e["value"].lower(): e["id"] for e in ents}
         ap_ids = []
-        for ap in app.get("accessProfiles") or []:  # optional for non-AD
-            ids = [by_value[v.lower()] for v in ap["entitlementValues"] if v.lower() in by_value]
-            if len(ids) != len(ap["entitlementValues"]):
-                log.warning("  AP '%s': some entitlement values not found", ap["name"])
-            if ids:
-                ap_id, _ = self.ensure_access_profile(ap["name"], ap.get("description", ap["name"]),
-                                                      owner, source, ids, NON_AD_APPROVALS)
-                ap_ids.append(ap_id)
-        if app.get("application") and ap_ids:
-            self.ensure_source_app(app["application"], app.get("description", ""), owner, source, ap_ids)
+        try:
+            for ap in app.get("accessProfiles") or []:
+                ids = [by_value[v.lower()] for v in ap["entitlementValues"] if v.lower() in by_value]
+                if len(ids) != len(ap["entitlementValues"]):
+                    log.warning("  AP '%s': some entitlement values not found", ap["name"])
+                if ids:
+                    ap_id, _ = self.ensure_access_profile(ap["name"], ap.get("description", ap["name"]),
+                                                          owner, source, ids, NON_AD_APPROVALS)
+                    ap_ids.append(ap_id)
+            if app.get("application") and ap_ids:
+                self.ensure_source_app(app["application"], app.get("description", ""),
+                                       owner, source, ap_ids)
+        except ISCError as e:
+            log.error("  access profiles not created (application kept): %s", e)
+            result.update(status="partial", accessProfileError=str(e)[:300])
 
     def handle_sqlloader(self, app, result):
         tpl = deep_merge(self.d["sqlLoaderTemplates"][app.get("template", "default")], app.get("sqlloader"))
