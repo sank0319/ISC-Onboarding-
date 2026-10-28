@@ -245,7 +245,7 @@ class Onboarder:
     # ----- source build steps
     def ensure_source(self, app, connector, connector_attrs, cluster_id=None):
         name = app.get("sourceName", app["appName"])
-        existing = self.find_one("/v3/sources", name)
+        existing = self.find_one("/v2024/access-profiles", name)
         if existing:
             log.info("  source '%s' exists (%s) - reusing", name, existing["id"])
             return existing, False
@@ -335,7 +335,7 @@ class Onboarder:
         existing = self.find_one("/v3/access-profiles", name)
         if existing:
             if self.d.get("updateExistingAccessProfiles"):
-                self.isc.patch(f"/v3/access-profiles/{existing['id']}", [
+                self.isc.patch(f"/v2024/access-profiles/{existing['id']}", [
                     {"op": "replace", "path": "/entitlements",
                      "value": [{"type": "ENTITLEMENT", "id": i} for i in ent_ids]},
                     {"op": "replace", "path": "/accessRequestConfig", "value": req_cfg}])
@@ -347,7 +347,7 @@ class Onboarder:
             "entitlements": [{"type": "ENTITLEMENT", "id": i} for i in ent_ids],
             "enabled": True, "requestable": True, "accessRequestConfig": req_cfg,
         }
-        res = self.isc.request("POST", "/v3/access-profiles", json_body=body, write=True)
+        res = self.isc.request("POST", "/v2024/access-profiles", json_body=body, write=True)
         return (res["id"] if res else f"DRYRUN-{name}"), "created"
 
     def ensure_source_app(self, app_name, desc, owner, source, ap_ids):
