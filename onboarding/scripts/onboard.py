@@ -245,7 +245,7 @@ class Onboarder:
     # ----- source build steps
     def ensure_source(self, app, connector, connector_attrs, cluster_id=None):
         name = app.get("sourceName", app["appName"])
-        existing = self.find_one("/v2024/access-profiles", name)
+        existing = self.find_one("/v3/sources", name)
         if existing:
             log.info("  source '%s' exists (%s) - reusing", name, existing["id"])
             return existing, False
@@ -332,7 +332,7 @@ class Onboarder:
     def ensure_access_profile(self, name, desc, owner, source, ent_ids, schemes):
         req_cfg = {"commentsRequired": self.d.get("requestCommentRequired", True),
                    "denialCommentsRequired": False, "approvalSchemes": schemes}
-        existing = self.find_one("/v3/access-profiles", name)
+        existing = self.find_one("/v2024/access-profiles", name)
         if existing:
             if self.d.get("updateExistingAccessProfiles"):
                 self.isc.patch(f"/v2024/access-profiles/{existing['id']}", [
