@@ -332,7 +332,11 @@ class Onboarder:
     def ensure_access_profile(self, name, desc, owner, source, ent_ids, schemes):
         req_cfg = {"commentsRequired": self.d.get("requestCommentRequired", True),
                    "denialCommentsRequired": False, "approvalSchemes": schemes}
-        existing = self.find_one("/v2024/access-profiles", name)
+        try:
+            existing = self.find_one("/v2024/access-profiles", name)
+        except ISCError as e:
+            log.warning("  access profile lookup unavailable (%s) - trying to create directly", str(e)[:150])
+            existing = None
         if existing:
             if self.d.get("updateExistingAccessProfiles"):
                 self.isc.patch(f"/v2024/access-profiles/{existing['id']}", [
