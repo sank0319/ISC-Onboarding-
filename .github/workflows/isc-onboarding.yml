@@ -82,4 +82,6 @@ jobs:
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" $DRY_RUN_FLAG
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: onboarding-report-${{ inputs.target }}, path: onboarding-report.json }
+        with: 
+            name: onboarding-report-${{ inputs.target }}
+            path: onboarding-report.json
