@@ -43,7 +43,7 @@ class ISCClient:
 
     # ---------- core ----------
     def request(self, method, path, *, params=None, json_body=None, data=None,
-                files=None, headers=None, write=False, retries=6):
+                files=None, headers=None, write=False, retries=10):
         if write and self.dry_run:
             preview = json.dumps(json_body)[:600] if json_body is not None else ""
             log.info("[DRY-RUN] %s %s %s", method, path, preview)
