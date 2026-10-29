@@ -168,8 +168,9 @@ class Onboarder:
         self._identity, self._approver, self._ents = {}, {}, {}
 
     # ----- lookups
-    def find_one(self, path, name):
-        res = self.isc.request("GET", path, params={"filters": f'name eq "{esc(name)}"', "limit": 2})
+    def find_one(self, path, name, retries=10):
+        res = self.isc.request("GET", path, params={"filters": f'name eq "{esc(name)}"', "limit": 2},
+                               retries=retries)
         return res[0] if res else None
 
     def identity_ref(self, key):
@@ -304,6 +305,7 @@ class Onboarder:
         fh = open(file_path, "rb") if file_path else None
         try:
             files = {"file": (os.path.basename(file_path), fh, "text/csv")} if fh else None
+            # /v3/ returned 404 for load-accounts on partner7884, so this one call uses /v2024/
             res = self.isc.request("POST", f"/v2024/sources/{source_id}/load-accounts",
                                    files=files, data={"disableOptimization": "true"}, write=True)
         finally:
@@ -333,13 +335,14 @@ class Onboarder:
         req_cfg = {"commentsRequired": self.d.get("requestCommentRequired", True),
                    "denialCommentsRequired": False, "approvalSchemes": schemes}
         try:
-            existing = self.find_one("/v2024/access-profiles", name)
+            # short retry here: if the lookup is unavailable we fall back to creating directly
+            existing = self.find_one("/v3/access-profiles", name, retries=4)
         except ISCError as e:
             log.warning("  access profile lookup unavailable (%s) - trying to create directly", str(e)[:150])
             existing = None
         if existing:
             if self.d.get("updateExistingAccessProfiles"):
-                self.isc.patch(f"/v2024/access-profiles/{existing['id']}", [
+                self.isc.patch(f"/v3/access-profiles/{existing['id']}", [
                     {"op": "replace", "path": "/entitlements",
                      "value": [{"type": "ENTITLEMENT", "id": i} for i in ent_ids]},
                     {"op": "replace", "path": "/accessRequestConfig", "value": req_cfg}])
@@ -351,7 +354,7 @@ class Onboarder:
             "entitlements": [{"type": "ENTITLEMENT", "id": i} for i in ent_ids],
             "enabled": True, "requestable": True, "accessRequestConfig": req_cfg,
         }
-        res = self.isc.request("POST", "/v2024/access-profiles", json_body=body, write=True)
+        res = self.isc.request("POST", "/v3/access-profiles", json_body=body, write=True)
         return (res["id"] if res else f"DRYRUN-{name}"), "created"
 
     def ensure_source_app(self, app_name, desc, owner, source, ap_ids):
