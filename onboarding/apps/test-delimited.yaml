@@ -2,7 +2,6 @@ apps:
   - appName: Test-Delimited-App
     connectorType: delimited
     owner: Sanson.Seah
-    reapplyConfig: true
     application: Test Delimited App
     delimited:
       accountFile: onboarding/data/delimited/test-app.csv
