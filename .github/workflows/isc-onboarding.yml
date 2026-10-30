@@ -2,7 +2,7 @@ name: ISC Bulk Onboarding
 
 on:
   pull_request:
-    paths: ["onboarding/**"]
+    paths: ["onboarding/**", "!onboarding/logs/**"]  # log commits never re-trigger
   workflow_dispatch:
     inputs:
       target:
@@ -55,10 +55,18 @@ jobs:
           ISC_TENANT: ${{ secrets.ISC_TENANT }}
           ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
           ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
+          ISC_TARGET: sandbox-readonly
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" --dry-run
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: plan-report, path: onboarding-report.json }
+      # PR runs never push: the run log is only kept as a workflow artifact
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: plan-logs
+          path: onboarding/logs
+          if-no-files-found: ignore
 
   # Manual run: sandbox or production. Protect the 'production' environment with required reviewers.
   apply:
@@ -67,6 +75,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.target }}
     timeout-minutes: 180
+    permissions:
+      contents: write  # only to commit onboarding/logs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -78,6 +88,7 @@ jobs:
           ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
           ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
           ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+          ISC_TARGET: ${{ inputs.target }}
           DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" $DRY_RUN_FLAG
       - uses: actions/upload-artifact@v4
@@ -85,3 +96,32 @@ jobs:
         with: 
             name: onboarding-report-${{ inputs.target }}
             path: onboarding-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: onboarding-logs-${{ inputs.target }}
+          path: onboarding/logs
+          if-no-files-found: ignore
+      - name: Commit run logs
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add onboarding/logs
+          if git diff --cached --quiet; then
+            echo "No new run logs"
+            exit 0
+          fi
+          git commit -m "chore(logs): onboarding run ${RUN_ID} [skip ci]"
+          # concurrent runs (different targets) can race on the branch: rebase and retry
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin "$BRANCH" && git push origin "HEAD:${BRANCH}"; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep $((attempt * 3))
+          done
+          echo "::warning::Could not push run logs to ${BRANCH} (branch protection?). They are in the onboarding-logs artifact."
