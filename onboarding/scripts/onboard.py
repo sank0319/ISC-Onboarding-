@@ -30,7 +30,8 @@ import time
 import yaml
 
 from isc_client import ISCClient, ISCError
-from run_log import RunLog
+from run_log import RunLog, register_secret
+from secrets_store import MASKED, load_credentials
 
 log = logging.getLogger("onboard")
 
@@ -792,9 +793,13 @@ def main():
                     target=os.environ.get("ISC_TARGET"), dry_run=args.dry_run)
     results, crashed = [], False
     try:
-        isc = ISCClient(os.environ["ISC_TENANT"], os.environ["ISC_CLIENT_ID"],
-                        os.environ["ISC_CLIENT_SECRET"], dry_run=args.dry_run,
-                        base_url=os.environ.get("ISC_BASE_URL") or None, on_event=runlog.event)
+        creds, source = load_credentials()
+        for name in MASKED:
+            register_secret(creds[name])
+        runlog.event("secrets_loaded", message=f"credentials loaded from {source}", source=source,
+                     vault=os.environ.get("AZURE_KEY_VAULT_NAME") or None)
+        isc = ISCClient(creds["ISC_TENANT"], creds["ISC_CLIENT_ID"], creds["ISC_CLIENT_SECRET"],
+                        dry_run=args.dry_run, base_url=creds.get("ISC_BASE_URL"), on_event=runlog.event)
         ob = Onboarder(isc, defaults, runlog)
         results = [ob.run(a) for a in apps]
         write_summary(results, args.dry_run, args.report)
