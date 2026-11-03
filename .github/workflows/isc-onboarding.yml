@@ -45,6 +45,9 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     environment: sandbox-readonly
+    permissions:
+      contents: read
+      id-token: write  # lets the job ask GitHub for an OIDC token to log in to Key Vault
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -52,9 +55,9 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Dry-run plan
         env:
-          ISC_TENANT: ${{ secrets.ISC_TENANT }}
-          ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
-          ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
           ISC_TARGET: sandbox-readonly
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" --dry-run
       - uses: actions/upload-artifact@v4
@@ -77,6 +80,7 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: write  # only to commit onboarding/logs
+      id-token: write  # lets the job ask GitHub for an OIDC token to log in to Key Vault
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -84,10 +88,9 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Onboard apps
         env:
-          ISC_TENANT: ${{ secrets.ISC_TENANT }}
-          ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
-          ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
-          ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
           ISC_TARGET: ${{ inputs.target }}
           DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" $DRY_RUN_FLAG

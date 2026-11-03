@@ -9,21 +9,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     environment: sandbox-readonly
+    permissions:
+      contents: read
+      id-token: write  # OIDC login to Azure Key Vault
     env:
-      ISC_TENANT: ${{ secrets.ISC_TENANT }}
-      ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
-      ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
-      ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
     steps:
-      - name: Get token and list sources
-        run: |
-          BASE="${ISC_BASE_URL:-https://${ISC_TENANT}.api.identitynow.com}"
-          echo "Calling $BASE"
-          TOKEN=$(curl -sS -f -X POST "$BASE/oauth/token" \
-            -d grant_type=client_credentials \
-            -d client_id="$ISC_CLIENT_ID" \
-            -d client_secret="$ISC_CLIENT_SECRET" | jq -r .access_token)
-          echo "::add-mask::$TOKEN"
-          echo "Token received"
-          curl -sS -f -H "Authorization: Bearer $TOKEN" \
-            "$BASE/v3/sources?limit=5" | jq -r '.[].name'
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Load credentials from Key Vault, get a token, list sources
+        run: python onboarding/scripts/connectivity_check.py
