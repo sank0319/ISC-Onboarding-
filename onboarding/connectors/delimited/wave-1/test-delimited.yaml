@@ -1,0 +1,18 @@
+apps:
+  - appName: Test-Delimited-App
+    connectorType: delimited
+    owner: Sanson.Seah
+    application: Test Delimited App
+    delimited:
+      accountFile: onboarding/connectors/delimited/feeds/{env}/Test-Delimited-App.csv
+      schema:
+        identityAttribute: EmployeeID
+        displayAttribute: UserName
+        entitlementColumns: [Role]
+        multiValued: [Role]
+      correlation:
+        - identityAttr: uid
+          accountAttr: UserName
+    accessProfiles:
+      - name: Test Delimited App - Approver
+        entitlementValues: [Approver]
