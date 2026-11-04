@@ -2,8 +2,62 @@
 
 ## Setup
 1. GitHub environments: `sandbox-readonly`, `sandbox`, `production` (add required reviewers on `production`).
-2. Secrets per environment: `ISC_TENANT`, `ISC_CLIENT_ID`, `ISC_CLIENT_SECRET` (client-credentials API client).
+2. ISC credentials come from HashiCorp Vault, not GitHub secrets - see [Credentials (HashiCorp Vault)](#credentials-hashicorp-vault).
 3. In `onboarding/config/defaults.yaml`: set the SQL Loader connector + connectorAttributes (copy from a working source), `clusterId`, and the AD extension attribute name.
+
+## Credentials (HashiCorp Vault)
+
+The ISC API client id/secret are read from [HashiCorp Vault](https://www.hashicorp.com/en/products/vault) at run time; nothing secret is stored in GitHub.
+
+1. The job requests a short-lived GitHub OIDC token (audience `vault-isc-onboarding`, see `DEFAULT_AUDIENCE` in `secrets_store.py`).
+2. Vault's JWT auth method verifies it against GitHub, matches the role's `bound_claims`, and returns a short-lived client token.
+3. The script reads one KV v2 secret (`ISC_TENANT`, `ISC_CLIENT_ID`, `ISC_CLIENT_SECRET`, optional `ISC_BASE_URL`), then revokes the token.
+
+If `VAULT_ADDR` is unset, the `ISC_*` environment variables are used instead: the workflows still pass the `ISC_TENANT`, `ISC_CLIENT_ID`, `ISC_CLIENT_SECRET` environment secrets and the `ISC_BASE_URL` variable for this, so the pipeline keeps working until Vault is ready. If `VAULT_ADDR` is set, `ISC_*` variables are ignored; delete those GitHub secrets once a Vault run has passed.
+
+### Vault side (once per GitHub environment)
+Use one secret path, policy and role per environment (`sandbox-readonly`, `sandbox`, `production`). On HCP Vault Dedicated also `export VAULT_NAMESPACE=admin`.
+```bash
+export VAULT_ADDR=https://<your-vault>:8200
+
+vault secrets enable -path=secret -version=2 kv          # skip if a KV v2 mount already exists
+vault kv put secret/isc/sandbox \
+  ISC_TENANT=<tenant> ISC_CLIENT_ID=<id> ISC_CLIENT_SECRET=<secret>   # add ISC_BASE_URL=... only if needed
+
+# policy: read on exactly this one secret, nothing else
+vault policy write isc-sandbox - <<'POLICY'
+path "secret/data/isc/sandbox" { capabilities = ["read"] }
+POLICY
+
+vault auth enable jwt
+vault write auth/jwt/config \
+  oidc_discovery_url=https://token.actions.githubusercontent.com \
+  bound_issuer=https://token.actions.githubusercontent.com
+
+# <SUB> = the exact value printed by the connectivity test (next section); do not hand-write it
+vault write auth/jwt/role/isc-sandbox \
+  role_type=jwt \
+  user_claim=repository \
+  bound_audiences=vault-isc-onboarding \
+  bound_claims='{"sub":"<SUB>"}' \
+  token_policies=isc-sandbox \
+  token_ttl=5m token_max_ttl=10m
+```
+`secret/data/...` is the KV v2 API path for `secret/isc/sandbox`. Pinning `sub` per GitHub environment keeps the roles apart; the `production` role must not accept the `sandbox` subject.
+
+### GitHub side
+Per environment (Settings > Environments > Variables, not secrets): `VAULT_ADDR`, `VAULT_ROLE` (e.g. `isc-sandbox`), `VAULT_SECRET_PATH` (e.g. `isc/sandbox`), `VAULT_NAMESPACE` (`admin` on HCP Vault Dedicated, empty otherwise); optional `VAULT_AUTH_MOUNT` (default `jwt`), `VAULT_KV_MOUNT` (default `secret`). `VAULT_AUDIENCE` (default above, must equal `bound_audiences`) is not wired into the workflows; add it to their `env:` if you change it. The jobs already have `permissions: id-token: write`. The old `ISC_*` secrets and the `ISC_BASE_URL` variable can be deleted (`ISC_BASE_URL` is now an optional key in the Vault secret).
+
+### Connectivity test and finding the `sub`
+Actions > "ISC connectivity test" > Run workflow, pick the environment. The first step prints `iss`, `sub` and `aud` of that job's OIDC token (not secret); copy `sub` into the role's `bound_claims`. It looks like `repo:<owner>/<repo>:environment:<name>` for older repositories, but repositories created after 15 July 2026 (and renamed/transferred ones, or those that opted in) use numeric ids, e.g. `repo:<owner>@<id>/<repo>@<id>:environment:<name>` ([GitHub changelog](https://github.blog/changelog/2026-04-23-immutable-subject-claims-for-GitHub-actions-oidc-tokens/)), so do not guess it. The second step logs in, reads the secret, gets an ISC token and prints 5 source names. `secrets_store.py --claims` only works inside Actions.
+
+### Notes
+- Vault must be reachable from GitHub-hosted runners (public HTTPS endpoint) or you need a self-hosted runner inside your network. `VAULT_ADDR` must be `https://` (plain `http://` only for `localhost`/`127.0.0.1`).
+- Getting a Vault (pricing, limits and any free tier are not verified here; check HashiCorp's [pricing page](https://www.hashicorp.com/products/vault/pricing)):
+  - HCP Vault Dedicated, run by HashiCorp: top-level namespace is `admin`; the docs list Development, Essentials and Standard tiers ([tiers](https://developer.hashicorp.com/hcp/docs/vault/tiers-and-features)); sign-up is linked from the [product page](https://www.hashicorp.com/en/products/vault). Check the HCP docs on public network access to confirm your cluster has a public endpoint.
+  - Self-hosted Vault Community Edition ([install](https://developer.hashicorp.com/vault/install)): you run, patch and secure it yourself, and it needs a public TLS endpoint for hosted runners. Namespaces are an Enterprise feature, so leave `VAULT_NAMESPACE` empty.
+  - Do not use `vault server -dev` for real credentials (in-memory, throwaway).
+- Not yet tested against a real Vault; the first connectivity-test run is the real check.
 
 ## Flow
 PR with app configs -> validate + sandbox dry-run plan -> merge -> Run workflow (sandbox, dry_run=false) -> verify -> Run workflow (production).
@@ -29,7 +83,47 @@ PR with app configs -> validate + sandbox dry-run plan -> merge -> Run workflow 
 - Governance group name length limit on your tenant.
 - Self-approval behaviour when the requester's manager is also in the governance group.
 
-Do not commit production account files containing personal data; fetch them from secure storage in the workflow instead.
+Do not commit production account files containing personal data: `onboarding/connectors/*/feeds/production/*.csv` is git-ignored; place those files there at run time from secure storage.
+
+## Repository layout
+```
+onboarding/
+  config/defaults.yaml
+  connectors/<type>/                 one folder per connector type: configs + feed data together
+    wave-1/<app>.yaml  wave-2/...    delimited and sqlloader run in waves (1 = one pilot app, 2 = the rest)
+    feeds/sandbox/<source name>.csv  account feed; group files are <source name>-group.csv
+    feeds/production/                same names; supplied at run time, *.csv not committed
+  scripts/
+    onboard.py                       CLI entrypoint
+    onboarder.py  batch.py  common.py  validation.py   shared code
+    connectors/{delimited,sqlloader,ad}.py, _template.py   one file per connector
+  logs/                              bot-committed run logs
+docs/  structure.md  validation-evidence.md  examples/  meeting-notes/
+```
+Feed paths in an app YAML use `{env}`, e.g. `accountFile: onboarding/connectors/delimited/feeds/{env}/Test-Delimited-App.csv`. `{env}` becomes `production` when `ISC_TARGET=production`, otherwise `sandbox`. Configs under `onboarding/connectors/` must sit in the folder of their `connectorType` and follow the feed naming; validation reports violations. Background: [docs/structure.md](docs/structure.md).
+
+## Running a wave
+```
+python onboarding/scripts/onboard.py --wave 1            # pilot app(s) only (all connectors with a wave-1 folder)
+python onboarding/scripts/onboard.py --wave 2 --apps "onboarding/connectors/delimited/**/*.yaml"
+```
+In GitHub: Run workflow -> `wave` = `1` or `2` (empty = everything). Apps outside `wave-N` folders (e.g. AD) are skipped when a wave is chosen. A wave with no configs is an error.
+
+## Choosing apps with a CSV
+A CSV with columns `applicationName` (the `appName` in the YAML) and `applicationType` (the `connectorType`) selects which apps are created, in file order:
+```
+python onboarding/scripts/onboard.py --apps-csv docs/examples/apps.csv --dry-run
+```
+In GitHub: Run workflow -> `apps_csv` = path in the repo. Unknown or missing names, unknown or mismatching types, duplicates and bad headers are reported together and stop the run before any API call. It combines with `--wave` and `--apps`.
+
+## Adding a connector
+1. Copy `onboarding/scripts/connectors/_template.py` to `<type>.py` and set `type` (the `connectorType` value).
+2. Implement `validate(app, defaults)` (offline checks, rules stay in this file) and `handle(ob, app, result)` using the shared `Onboarder` steps (`ensure_source`, `apply_schema`, `apply_correlation`, `aggregate`, `finish_non_ad`, `ensure_access_profile`, `ensure_source_app`, ...). For file-fed connectors implement `feed(app)`.
+3. Create `onboarding/connectors/<type>/` with the app YAMLs (`wave-N/` if it runs in waves) and `feeds/sandbox/`, `feeds/production/`; add any defaults to `defaults.yaml`.
+4. Add tests next to the existing ones (negative validation cases, handler against `FakeISC`).
+5. Run `python -m pytest -q` and `python onboarding/scripts/onboard.py --validate-only`.
+
+Nothing else changes: the file is discovered automatically (modules starting with `_` are skipped), a duplicate `type` raises an error at start-up, and the default `--apps` glob covers the new folder.
 
 ## Running the tests
 The negative-test suite runs fully offline against an in-memory fake of the ISC API (`tests/conftest.py`); no tenant, credentials or network are needed.
