@@ -14,8 +14,10 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "onboarding" / "scripts"))
 
+import batch  # noqa: E402
+import common  # noqa: E402
 import isc_client  # noqa: E402
-import onboard  # noqa: E402
+import onboarder  # noqa: E402
 from isc_client import ISCClient, ISCError  # noqa: E402
 
 MAX_NAME = 128
@@ -323,7 +325,7 @@ class Clock:
 @pytest.fixture(autouse=True)
 def clock(monkeypatch):
     c = Clock()
-    monkeypatch.setattr(onboard, "time", c)
+    monkeypatch.setattr(onboarder, "time", c)
     monkeypatch.setattr(isc_client, "time", c)
     return c
 
@@ -336,7 +338,7 @@ def isolated_logs(tmp_path, monkeypatch):
 
 @pytest.fixture
 def defaults():
-    d = onboard.load_yaml(ROOT / "onboarding" / "config" / "defaults.yaml")
+    d = common.load_yaml(ROOT / "onboarding" / "config" / "defaults.yaml")
     d["sqlLoaderTemplates"]["default"]["connector"] = "sql-loader-script"
     return d
 
@@ -355,7 +357,7 @@ def isc():
 
 @pytest.fixture
 def ob(isc, defaults):
-    return onboard.Onboarder(isc, defaults)
+    return onboarder.Onboarder(isc, defaults)
 
 
 @pytest.fixture
@@ -380,7 +382,7 @@ def delim_app(csv_file):
                                          "entitlementColumns": ["Role"]},
                               "correlation": [{"identityAttr": "uid", "accountAttr": "UserName"}]},
                 "accessProfiles": [{"name": "Demo App - Approver", "entitlementValues": ["Approver"]}]}
-        return onboard.deep_merge(base, over)
+        return common.deep_merge(base, over)
     return make
 
 
@@ -397,18 +399,27 @@ def ad_app(csv_file, isc):
     def make(text=AD_TEXT, **over):
         base = {"appName": "Treasury", "connectorType": "ad", "owner": "asmith", "application": "Treasury",
                 "ad": {"sourceName": "Active Directory", "entitlementExport": csv_file(text, "ad.csv")}}
-        return onboard.deep_merge(base, over)
+        return common.deep_merge(base, over)
     return make
 
 
 def run_batch(isc, defaults, apps):
     """validate (as main does) then run every app; returns the per-app results."""
-    errors = onboard.batch_errors(apps, defaults)
+    errors = batch.batch_errors(apps, defaults)
     assert not errors, errors
-    ob = onboard.Onboarder(isc, defaults)
+    ob = onboarder.Onboarder(isc, defaults)
     return [ob.run(a) for a in apps]
 
 
 @pytest.fixture
 def run_one(isc, defaults):
     return lambda app: run_batch(isc, defaults, [app])[0]
+
+
+@pytest.fixture(autouse=True)
+def no_ambient_vault_env(monkeypatch):
+    """A developer's own VAULT_* / Actions OIDC variables must not leak into tests."""
+    for name in ("VAULT_ADDR", "VAULT_NAMESPACE", "VAULT_ROLE", "VAULT_SECRET_PATH", "VAULT_AUTH_MOUNT",
+                 "VAULT_KV_MOUNT", "VAULT_AUDIENCE", "ACTIONS_ID_TOKEN_REQUEST_URL",
+                 "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "GITHUB_ACTIONS"):
+        monkeypatch.delenv(name, raising=False)
