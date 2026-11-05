@@ -4,7 +4,7 @@ apps:
     owner: Sanson.Seah
     application: Test Delimited App
     delimited:
-      accountFile: onboarding/connectors/delimited/feeds/{env}/Test-Delimited-App.csv
+      accountFile: onboarding/connectors/delimited/data/{env}/Test-Delimited-App.csv
       schema:
         identityAttribute: EmployeeID
         displayAttribute: UserName

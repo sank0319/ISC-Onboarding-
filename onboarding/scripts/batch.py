@@ -103,8 +103,9 @@ def select_apps(entries, csv_path):
 
 # ---------------------------------------------------------------- layout (connector folders)
 def layout_errors(entries):
-    """Apps under onboarding/connectors/<type>/ must be of that type and read their feed from
-    feeds/{env}/<source name>.csv (accounts) or feeds/{env}/<name>-group.csv (groups)."""
+    """Each connector folder has two parts: apps/ (the app definitions that create the applications)
+    and data/ (feed files). Apps under onboarding/connectors/<type>/apps/ must be of that type and read
+    their feed from data/{env}/<source name>.csv (accounts) or data/{env}/<name>-group.csv (groups)."""
     errs = []
     for path, app in entries:
         parts = Path(path).parts
@@ -112,12 +113,12 @@ def layout_errors(entries):
         if i is None or not isinstance(app, dict):
             continue
         kind, who = app.get("connectorType"), f"{path}: [{app.get('appName')}]"
-        if kind != (parts[i + 2] if len(parts) > i + 3 else None):
-            errs.append(f"{who} connectorType '{kind}' must live in onboarding/connectors/{kind}/")
+        if parts[i + 2:i + 4] != (kind, "apps") or len(parts) < i + 5:
+            errs.append(f"{who} connectorType '{kind}' must live in onboarding/connectors/{kind}/apps/")
         elif kind in connectors.REGISTRY and (feed := connectors.get(kind).feed(app)):
             configured, name = feed
-            if isinstance(configured, str) and Path(configured).parts[-5:] != ("connectors", kind, "feeds", "{env}", name):
-                errs.append(f"{who} feed file must be .../connectors/{kind}/feeds/{{env}}/{name}, got {configured}")
+            if isinstance(configured, str) and Path(configured).parts[-5:] != ("connectors", kind, "data", "{env}", name):
+                errs.append(f"{who} feed file must be .../connectors/{kind}/data/{{env}}/{name}, got {configured}")
     return errs
 
 

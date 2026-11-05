@@ -2,12 +2,12 @@
 """Bulk onboarding of applications into SailPoint ISC (run from GitHub Actions).
 
 Connector handlers live one per file in onboarding/scripts/connectors/ (ad, delimited, sqlloader);
-app configs and feed files live in onboarding/connectors/<type>/.
+each connector has apps/ (app definitions) and data/ (feed files) in onboarding/connectors/<type>/.
 
 Usage
   python onboard.py --validate-only
   python onboard.py --dry-run
-  python onboard.py --apps "onboarding/connectors/delimited/**/*.yaml" --wave 1
+  python onboard.py --apps "onboarding/connectors/delimited/apps/**/*.yaml" --wave 1
   python onboard.py --apps-csv docs/examples/apps.csv
 """
 import argparse
@@ -25,7 +25,7 @@ from secrets_store import load_credentials
 
 log = logging.getLogger("onboard")
 
-DEFAULT_APPS = "onboarding/connectors/**/*.yaml"
+DEFAULT_APPS = "onboarding/connectors/*/apps/**/*.yaml"
 
 
 def write_summary(results, dry_run, path):

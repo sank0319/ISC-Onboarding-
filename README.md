@@ -83,16 +83,18 @@ PR with app configs -> validate + sandbox dry-run plan -> merge -> Run workflow 
 - Governance group name length limit on your tenant.
 - Self-approval behaviour when the requester's manager is also in the governance group.
 
-Do not commit production account files containing personal data: `onboarding/connectors/*/feeds/production/*.csv` is git-ignored; place those files there at run time from secure storage.
+Do not commit production account files containing personal data: `onboarding/connectors/*/data/production/*.csv` is git-ignored; place those files there at run time from secure storage.
 
 ## Repository layout
 ```
 onboarding/
   config/defaults.yaml
-  connectors/<type>/                 one folder per connector type: configs + feed data together
-    wave-1/<app>.yaml  wave-2/...    delimited and sqlloader run in waves (1 = one pilot app, 2 = the rest)
-    feeds/sandbox/<source name>.csv  account feed; group files are <source name>-group.csv
-    feeds/production/                same names; supplied at run time, *.csv not committed
+  connectors/<type>/                 one folder per connector type, each with two folders:
+    apps/                            app definitions: the YAMLs that create the applications
+      wave-1/<app>.yaml  wave-2/...  delimited and sqlloader run in waves (1 = one pilot app, 2 = the rest)
+    data/                            app data: the feed files
+      sandbox/<source name>.csv      account feed; group files are <source name>-group.csv
+      production/                    same names; supplied at run time, *.csv not committed
   scripts/
     onboard.py                       CLI entrypoint
     onboarder.py  batch.py  common.py  validation.py   shared code
@@ -100,12 +102,12 @@ onboarding/
   logs/                              bot-committed run logs
 docs/  structure.md  validation-evidence.md  examples/  meeting-notes/
 ```
-Feed paths in an app YAML use `{env}`, e.g. `accountFile: onboarding/connectors/delimited/feeds/{env}/Test-Delimited-App.csv`. `{env}` becomes `production` when `ISC_TARGET=production`, otherwise `sandbox`. Configs under `onboarding/connectors/` must sit in the folder of their `connectorType` and follow the feed naming; validation reports violations. Background: [docs/structure.md](docs/structure.md).
+Feed paths in an app YAML use `{env}`, e.g. `accountFile: onboarding/connectors/delimited/data/{env}/Test-Delimited-App.csv`. `{env}` becomes `production` when `ISC_TARGET=production`, otherwise `sandbox`. Configs under `onboarding/connectors/` must sit in `<connectorType>/apps/` and read their feed from `<connectorType>/data/{env}/` with the feed naming; validation reports violations. Background: [docs/structure.md](docs/structure.md).
 
 ## Running a wave
 ```
 python onboarding/scripts/onboard.py --wave 1            # pilot app(s) only (all connectors with a wave-1 folder)
-python onboarding/scripts/onboard.py --wave 2 --apps "onboarding/connectors/delimited/**/*.yaml"
+python onboarding/scripts/onboard.py --wave 2 --apps "onboarding/connectors/delimited/apps/**/*.yaml"
 ```
 In GitHub: Run workflow -> `wave` = `1` or `2` (empty = everything). Apps outside `wave-N` folders (e.g. AD) are skipped when a wave is chosen. A wave with no configs is an error.
 
@@ -119,7 +121,7 @@ In GitHub: Run workflow -> `apps_csv` = path in the repo. Unknown or missing nam
 ## Adding a connector
 1. Copy `onboarding/scripts/connectors/_template.py` to `<type>.py` and set `type` (the `connectorType` value).
 2. Implement `validate(app, defaults)` (offline checks, rules stay in this file) and `handle(ob, app, result)` using the shared `Onboarder` steps (`ensure_source`, `apply_schema`, `apply_correlation`, `aggregate`, `finish_non_ad`, `ensure_access_profile`, `ensure_source_app`, ...). For file-fed connectors implement `feed(app)`.
-3. Create `onboarding/connectors/<type>/` with the app YAMLs (`wave-N/` if it runs in waves) and `feeds/sandbox/`, `feeds/production/`; add any defaults to `defaults.yaml`.
+3. Create `onboarding/connectors/<type>/apps/` with the app YAMLs (`wave-N/` inside it if it runs in waves) and `onboarding/connectors/<type>/data/sandbox/`, `data/production/`; add any defaults to `defaults.yaml`.
 4. Add tests next to the existing ones (negative validation cases, handler against `FakeISC`).
 5. Run `python -m pytest -q` and `python onboarding/scripts/onboard.py --validate-only`.
 

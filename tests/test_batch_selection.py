@@ -14,19 +14,19 @@ CONN = "onboarding/connectors"
 
 @pytest.fixture
 def repo(tmp_path, delim_app, defaults, csv_file):
-    """Builds a mini repo: repo.app('Name', wave=1) writes <tmp>/onboarding/connectors/delimited/wave-1/Name.yaml
+    """Builds a mini repo: repo.app('Name', wave=1) writes <tmp>/onboarding/connectors/delimited/apps/wave-1/Name.yaml
     plus sandbox and production feeds named after the source."""
     (tmp_path / "defaults.yaml").write_text(yaml.safe_dump(defaults))
     root = tmp_path / CONN / "delimited"
 
     def app(name, wave=1, kind="delimited", feeds=("sandbox", "production"), feed_name=None):
         for env in feeds:
-            (root / "feeds" / env).mkdir(parents=True, exist_ok=True)
-            (root / "feeds" / env / f"{name}.csv").write_text(Path(csv_file()).read_text())
+            (root / "data" / env).mkdir(parents=True, exist_ok=True)
+            (root / "data" / env / f"{name}.csv").write_text(Path(csv_file()).read_text())
         cfg = delim_app(appName=name, application=name, connectorType=kind,
-                        delimited={"accountFile": f"{root}/feeds/{{env}}/{feed_name or name}.csv"},
+                        delimited={"accountFile": f"{root}/data/{{env}}/{feed_name or name}.csv"},
                         accessProfiles=[{"name": f"{name} AP", "entitlementValues": ["Approver"]}])
-        folder = root / (f"wave-{wave}" if wave else "")
+        folder = root / "apps" / (f"wave-{wave}" if wave else "")
         folder.mkdir(parents=True, exist_ok=True)
         (folder / f"{name}.yaml").write_text(yaml.safe_dump(cfg))
 
@@ -59,12 +59,12 @@ def run_cli(monkeypatch, repo, isc, capsys):
 
 # ---------------------------------------------------------------- waves
 @pytest.mark.parametrize("path,wave", [
-    ("onboarding/connectors/delimited/wave-1/a.yaml", 1),
-    ("onboarding/connectors/sqlloader/wave-12/a.yaml", 12),
-    ("onboarding/connectors/ad/a.yaml", None),
-    ("onboarding/connectors/delimited/wave-2/nested/a.yaml", 2),
-    ("onboarding/connectors/delimited/wave-x/a.yaml", None),
-    ("onboarding/connectors/delimited/wave-1.yaml", None),
+    ("onboarding/connectors/delimited/apps/wave-1/a.yaml", 1),
+    ("onboarding/connectors/sqlloader/apps/wave-12/a.yaml", 12),
+    ("onboarding/connectors/ad/apps/a.yaml", None),
+    ("onboarding/connectors/delimited/apps/wave-2/nested/a.yaml", 2),
+    ("onboarding/connectors/delimited/apps/wave-x/a.yaml", None),
+    ("onboarding/connectors/delimited/apps/wave-1.yaml", None),
 ])
 def test_wave_comes_from_the_wave_folder(path, wave):
     assert batch.wave_of(path) == wave
@@ -203,7 +203,7 @@ def test_only_the_production_target_reads_production_feeds(target, env):
 
 def test_sandbox_run_reads_sandbox_feed_and_production_run_reads_production_feed(repo, run_cli, isc):
     repo.app("App")
-    (repo.root / "feeds" / "production" / "App.csv").write_text("EmployeeID,UserName,Email,Status,Role\n9,prod,p@x.com,Active,Approver\n")
+    (repo.root / "data" / "production" / "App.csv").write_text("EmployeeID,UserName,Email,Status,Role\n9,prod,p@x.com,Active,Approver\n")
     assert run_cli(target="sandbox")[0] == 0
     sandbox_rows = isc.called("POST", "load-accounts")
     assert run_cli(target="production")[0] == 0
@@ -213,25 +213,25 @@ def test_sandbox_run_reads_sandbox_feed_and_production_run_reads_production_feed
 def test_production_run_without_production_feed_fails_validation(repo, run_cli):
     repo.app("App", feeds=("sandbox",))
     code, out, _, clients = run_cli(target="production")
-    assert code == 1 and not clients and "feeds/production/App.csv" in out and "not found" in out
+    assert code == 1 and not clients and "data/production/App.csv" in out and "not found" in out
     assert run_cli(target="sandbox")[0] == 0
 
 
 def test_validate_only_checks_the_sandbox_feed_by_default(repo, run_cli):
     repo.app("App", feeds=("production",))
     code, out, _, _ = run_cli("--validate-only")
-    assert code == 1 and "feeds/sandbox/App.csv" in out
+    assert code == 1 and "data/sandbox/App.csv" in out
 
 
 def layout(tmp_path, folder, app):
-    return batch.layout_errors([(str(tmp_path / CONN / folder / "wave-1" / "a.yaml"), app)])
+    return batch.layout_errors([(str(tmp_path / CONN / folder / "apps" / "wave-1" / "a.yaml"), app)])
 
 
 def app_with(feed, **over):
     return {"appName": "My App", "connectorType": "delimited", "delimited": {"accountFile": feed}, **over}
 
 
-GOOD = f"{CONN}/delimited/feeds/{{env}}/My App.csv"
+GOOD = f"{CONN}/delimited/data/{{env}}/My App.csv"
 
 
 def test_layout_accepts_convention(tmp_path):
@@ -240,21 +240,21 @@ def test_layout_accepts_convention(tmp_path):
 
 
 @pytest.mark.parametrize("feed", [
-    f"{CONN}/delimited/feeds/sandbox/My App.csv",          # environment hard-coded
-    f"{CONN}/delimited/feeds/{{env}}/my-app.csv",           # not named after the source
-    f"{CONN}/delimited/feeds/{{env}}/My App-group.csv",     # group name on an account feed
-    f"{CONN}/delimited/{{env}}/My App.csv",                 # missing feeds/ level
-    f"{CONN}/sqlloader/feeds/{{env}}/My App.csv",           # another connector's feed folder
+    f"{CONN}/delimited/data/sandbox/My App.csv",          # environment hard-coded
+    f"{CONN}/delimited/data/{{env}}/my-app.csv",           # not named after the source
+    f"{CONN}/delimited/data/{{env}}/My App-group.csv",     # group name on an account feed
+    f"{CONN}/delimited/{{env}}/My App.csv",                 # missing data/ level
+    f"{CONN}/sqlloader/data/{{env}}/My App.csv",           # another connector's feed folder
     "somewhere/else/My App.csv",
 ])
 def test_layout_rejects_feed_outside_convention(tmp_path, feed):
     errs = layout(tmp_path, "delimited", app_with(feed))
-    assert len(errs) == 1 and "feed file must be" in errs[0] and "feeds/{env}/My App.csv" in errs[0]
+    assert len(errs) == 1 and "feed file must be" in errs[0] and "data/{env}/My App.csv" in errs[0]
 
 
 def test_layout_rejects_app_in_another_connectors_folder(tmp_path):
     errs = layout(tmp_path, "sqlloader", app_with(GOOD))
-    assert "connectorType 'delimited' must live in onboarding/connectors/delimited/" in errs[0]
+    assert "connectorType 'delimited' must live in onboarding/connectors/delimited/apps/" in errs[0]
 
 
 def test_layout_rejects_file_directly_in_connectors_dir(tmp_path):
@@ -263,9 +263,9 @@ def test_layout_rejects_file_directly_in_connectors_dir(tmp_path):
 
 
 def test_ad_group_files_are_named_with_group_suffix(tmp_path):
-    ad = {"appName": "Treasury", "connectorType": "ad", "ad": {"entitlementExport": f"{CONN}/ad/feeds/{{env}}/Treasury-group.csv"}}
+    ad = {"appName": "Treasury", "connectorType": "ad", "ad": {"entitlementExport": f"{CONN}/ad/data/{{env}}/Treasury-group.csv"}}
     assert layout(tmp_path, "ad", ad) == []
-    ad["ad"]["entitlementExport"] = f"{CONN}/ad/feeds/{{env}}/Treasury.csv"
+    ad["ad"]["entitlementExport"] = f"{CONN}/ad/data/{{env}}/Treasury.csv"
     assert "Treasury-group.csv" in layout(tmp_path, "ad", ad)[0]
 
 
@@ -283,3 +283,17 @@ def test_cli_rejects_misplaced_feed(repo, run_cli):
     repo.app("Other")
     code, out, _, clients = run_cli()
     assert code == 1 and not clients and "feed file must be" in out
+
+
+@pytest.mark.parametrize("sub", [("a.yaml",), ("data", "a.yaml"), ("wave-1", "a.yaml"), ("feeds", "a.yaml")])
+def test_layout_requires_configs_under_apps(tmp_path, sub):
+    """Each connector folder has apps/ (definitions) and data/ (feeds); a config anywhere else is rejected."""
+    errs = batch.layout_errors([(str(tmp_path.joinpath(CONN, "delimited", *sub)), app_with(GOOD))])
+    assert len(errs) == 1 and "must live in onboarding/connectors/delimited/apps/" in errs[0]
+
+
+def test_layout_accepts_configs_without_wave_folder_under_apps(tmp_path):
+    entries = [(str(tmp_path / CONN / "ad" / "apps" / "a.yaml"),
+                {"appName": "Treasury", "connectorType": "ad",
+                 "ad": {"entitlementExport": f"{CONN}/ad/data/{{env}}/Treasury-group.csv"}})]
+    assert batch.layout_errors(entries) == []

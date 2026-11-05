@@ -1,0 +1,15 @@
+# SQL Loader sample app. Inactive: the default glob only reads *.yaml.
+# To use it: finish the steps in onboarding/connectors/sqlloader/README.md, then rename this file to
+# <your-app>.yaml (drop ".example") and edit the values below.
+apps:
+  - appName: Sample-SqlLoader-App
+    connectorType: sqlloader
+    owner: Sanson.Seah                 # identity alias (or e-mail) of the application owner
+    template: default                  # sqlLoaderTemplates.<template> in onboarding/config/defaults.yaml
+    application: Sample SqlLoader App
+    sqlloader:
+      connectorAttributes:             # merged onto the template's connectorAttributes
+        file: /path/on/the/va/sample-accounts.csv
+    accessProfiles:
+      - name: Sample SqlLoader App - Approver
+        entitlementValues: [APPROVER]

@@ -3,7 +3,6 @@ import re
 
 import pytest
 
-import common
 import onboard
 
 HDR = "EmployeeID,UserName,Email,Status,Role"
@@ -67,7 +66,7 @@ def test_directory_as_account_file(delim_app, defaults, tmp_path):
 
 def test_bom_header_is_stripped(delim_app, csv_file, defaults):
     path = csv_file(raw=b"\xef\xbb\xbf" + f"{HDR}\n{ROW}\n".encode())
-    assert common.read_csv(path)[0][0] == "EmployeeID"
+    assert onboard.read_csv(path)[0][0] == "EmployeeID"
     assert errors(delim_app(delimited={"accountFile": path}), defaults) == []
 
 
