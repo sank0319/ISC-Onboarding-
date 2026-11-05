@@ -1,0 +1,50 @@
+name: ISC discover (read-only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "GitHub environment (its Vault role is bound to this environment's OIDC subject)"
+        type: choice
+        options: [sandbox-readonly, sandbox]
+        default: sandbox
+      what:
+        description: "connectors = connector types, sources = existing sources, source = one source in detail"
+        type: choice
+        options: [connectors, sources, source]
+        default: connectors
+      query:
+        description: "Text to look for (default sql). For 'source': the exact source name"
+        type: string
+        default: sql
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+      VAULT_NAMESPACE: ${{ vars.VAULT_NAMESPACE }}
+      VAULT_ROLE: ${{ vars.VAULT_ROLE }}
+      VAULT_SECRET_PATH: ${{ vars.VAULT_SECRET_PATH }}
+      VAULT_AUTH_MOUNT: ${{ vars.VAULT_AUTH_MOUNT }}
+      VAULT_KV_MOUNT: ${{ vars.VAULT_KV_MOUNT }}
+      ISC_TENANT: ${{ secrets.ISC_TENANT }}
+      ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
+      ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
+      ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+      WHAT: ${{ inputs.what }}
+      QUERY: ${{ inputs.query }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt
+      - name: Read-only lookup (GET requests only)
+        run: python onboarding/scripts/discover.py "$WHAT" --query "$QUERY"
