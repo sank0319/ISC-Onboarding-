@@ -1,13 +1,6 @@
 name: ISC connectivity test
 
-on:
-  workflow_dispatch:
-    inputs:
-      target:
-        description: "GitHub environment to test (its Vault role is bound to this environment's OIDC subject)"
-        type: choice
-        options: [sandbox-readonly, sandbox, production]
-        default: sandbox-readonly
+on: workflow_dispatch
 
 permissions:
   contents: read
@@ -15,28 +8,18 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.target }}
+    environment: sandbox-readonly
     permissions:
       contents: read
-      id-token: write  # request the GitHub OIDC token used to log in to Vault
+      id-token: write  # OIDC login to Azure Key Vault
     env:
-      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
-      VAULT_NAMESPACE: ${{ vars.VAULT_NAMESPACE }}
-      VAULT_ROLE: ${{ vars.VAULT_ROLE }}
-      VAULT_SECRET_PATH: ${{ vars.VAULT_SECRET_PATH }}
-      VAULT_AUTH_MOUNT: ${{ vars.VAULT_AUTH_MOUNT }}
-      VAULT_KV_MOUNT: ${{ vars.VAULT_KV_MOUNT }}
-      # fallback until Vault is set up: ignored by the script when VAULT_ADDR is set
-      ISC_TENANT: ${{ secrets.ISC_TENANT }}
-      ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
-      ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
-      ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11", cache: pip }
       - run: pip install -r requirements.txt
-      - name: Show OIDC claims (iss/sub/aud - not secret; copy sub into the Vault role)
-        run: python onboarding/scripts/secrets_store.py --claims
-      - name: Get token and list sources
+      - name: Load credentials from Key Vault, get a token, list sources
         run: python onboarding/scripts/connectivity_check.py
