@@ -12,13 +12,7 @@ on:
         default: sandbox
       apps:
         description: "Glob of app config files"
-        default: "onboarding/connectors/**/*.yaml"
-      wave:
-        description: "Only this wave (e.g. 1 = pilot app, 2 = the rest); empty = all"
-        default: ""
-      apps_csv:
-        description: "Optional CSV (applicationName,applicationType) selecting which apps to create"
-        default: ""
+        default: "onboarding/apps/*.yaml"
       dry_run:
         description: "Plan only - no writes to ISC"
         type: boolean
@@ -32,9 +26,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  APPS_GLOB: ${{ inputs.apps || 'onboarding/connectors/**/*.yaml' }}
-  WAVE: ${{ inputs.wave }}
-  APPS_CSV: ${{ inputs.apps_csv }}
+  APPS_GLOB: ${{ inputs.apps || 'onboarding/apps/*.yaml' }}
 
 jobs:
   validate:
@@ -45,7 +37,7 @@ jobs:
         with: { python-version: "3.11", cache: pip }
       - run: pip install -r requirements.txt
       - name: Validate app configs (no API calls)
-        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" ${WAVE:+--wave "$WAVE"} ${APPS_CSV:+--apps-csv "$APPS_CSV"} --validate-only
+        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" --validate-only
 
   # On every PR: dry-run against sandbox so reviewers see exactly what will be created
   plan:
@@ -55,7 +47,7 @@ jobs:
     environment: sandbox-readonly
     permissions:
       contents: read
-      id-token: write  # GitHub OIDC token -> Vault login
+      id-token: write  # lets the job ask GitHub for an OIDC token to log in to Key Vault
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -63,19 +55,11 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Dry-run plan
         env:
-          VAULT_ADDR: ${{ vars.VAULT_ADDR }}
-          VAULT_NAMESPACE: ${{ vars.VAULT_NAMESPACE }}
-          VAULT_ROLE: ${{ vars.VAULT_ROLE }}
-          VAULT_SECRET_PATH: ${{ vars.VAULT_SECRET_PATH }}
-          VAULT_AUTH_MOUNT: ${{ vars.VAULT_AUTH_MOUNT }}
-          VAULT_KV_MOUNT: ${{ vars.VAULT_KV_MOUNT }}
-          # fallback until Vault is set up: ignored by the script when VAULT_ADDR is set
-          ISC_TENANT: ${{ secrets.ISC_TENANT }}
-          ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
-          ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
-          ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
           ISC_TARGET: sandbox-readonly
-        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" ${WAVE:+--wave "$WAVE"} ${APPS_CSV:+--apps-csv "$APPS_CSV"} --dry-run
+        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" --dry-run
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: plan-report, path: onboarding-report.json }
@@ -96,7 +80,7 @@ jobs:
     timeout-minutes: 180
     permissions:
       contents: write  # only to commit onboarding/logs
-      id-token: write  # GitHub OIDC token -> Vault login
+      id-token: write  # lets the job ask GitHub for an OIDC token to log in to Key Vault
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -104,20 +88,12 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Onboard apps
         env:
-          VAULT_ADDR: ${{ vars.VAULT_ADDR }}
-          VAULT_NAMESPACE: ${{ vars.VAULT_NAMESPACE }}
-          VAULT_ROLE: ${{ vars.VAULT_ROLE }}
-          VAULT_SECRET_PATH: ${{ vars.VAULT_SECRET_PATH }}
-          VAULT_AUTH_MOUNT: ${{ vars.VAULT_AUTH_MOUNT }}
-          VAULT_KV_MOUNT: ${{ vars.VAULT_KV_MOUNT }}
-          # fallback until Vault is set up: ignored by the script when VAULT_ADDR is set
-          ISC_TENANT: ${{ secrets.ISC_TENANT }}
-          ISC_CLIENT_ID: ${{ secrets.ISC_CLIENT_ID }}
-          ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
-          ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
           ISC_TARGET: ${{ inputs.target }}
           DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
-        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" ${WAVE:+--wave "$WAVE"} ${APPS_CSV:+--apps-csv "$APPS_CSV"} $DRY_RUN_FLAG
+        run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" $DRY_RUN_FLAG
       - uses: actions/upload-artifact@v4
         if: always()
         with: 
