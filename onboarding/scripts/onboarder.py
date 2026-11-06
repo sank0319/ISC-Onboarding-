@@ -9,6 +9,7 @@ import connectors
 from common import chunks, esc, text_or
 from isc_client import ISCError
 from run_log import RunLog
+from uploader import upload_with_utility
 
 log = logging.getLogger("onboard")
 
@@ -194,6 +195,9 @@ class Onboarder:
                   step="correlation", source_id=source_id)
 
     def aggregate(self, source_id, file_path=None):
+        jar = os.environ.get("ISC_UPLOAD_JAR", "").strip()
+        if jar and file_path:
+            return self.aggregate_with_utility(jar, source_id, file_path)
         fh = open(file_path, "rb") if file_path else None
         try:
             files = {"file": (os.path.basename(file_path), fh, "text/csv")} if fh else None
@@ -205,6 +209,21 @@ class Onboarder:
                 fh.close()
         if res:
             self.wait_task((res.get("task") or {}).get("id"))
+
+    def aggregate_with_utility(self, jar, source_id, file_path):
+        """Feed upload through SailPoint's File Upload Utility JAR, then wait for the accounts to appear."""
+        if self.isc.dry_run:
+            self.note("upload_dry_run", "  [DRY-RUN] would upload %s with the File Upload Utility", file_path, step="aggregate")
+            return
+        out = upload_with_utility(jar, self.isc.base, self.isc.client_id, self.isc.client_secret, source_id, file_path)
+        self.note("upload_utility_done", "  File Upload Utility finished: %s", out[-300:], step="aggregate")
+        timeout = time.time() + 60 * int(self.d.get("aggregationTimeoutMinutes", 30))
+        while time.time() < timeout:
+            if self.isc.request("GET", "/v3/accounts", params={"filters": f'sourceId eq "{source_id}"', "limit": 1}):
+                time.sleep(int(self.d.get("postAggregationPauseSeconds", 20)))  # let entitlements settle
+                return
+            time.sleep(15)
+        raise ISCError("no accounts appeared on the source after the File Upload Utility finished")
 
     # ----- access build steps
     def make_requestable(self, ents):
