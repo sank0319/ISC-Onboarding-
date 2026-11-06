@@ -28,7 +28,7 @@ ad:
 # Tip: copy connector + connectorAttributes from a working SQL Loader source (GET /v3/sources/{id})
 sqlLoaderTemplates:
   default:
-    connector: REPLACE_WITH_SQL_LOADER_SCRIPT_NAME
+    connector: sqlloader-angularsc
     connectorAttributes: {}
     schema:
       identityAttribute: USER_ID
