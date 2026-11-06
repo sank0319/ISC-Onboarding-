@@ -1,0 +1,3 @@
+USER_ID,USER_NAME,EMAIL,STATUS,ROLE
+2001,sample.one,sample.one@example.com,Active,APPROVER
+2002,sample.two,sample.two@example.com,Active,VIEWER
