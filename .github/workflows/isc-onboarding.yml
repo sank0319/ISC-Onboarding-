@@ -102,6 +102,22 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.11", cache: pip }
       - run: pip install -r requirements.txt
+      # Optional: upload feeds with SailPoint's File Upload Utility. Set the environment variables
+      # FILE_UPLOAD_JAR_URL (release asset URL) and FILE_UPLOAD_JAR_SHA256 (its checksum) to switch it on.
+      - uses: actions/setup-java@v4
+        if: vars.FILE_UPLOAD_JAR_URL != ''
+        with: { distribution: temurin, java-version: "17" }
+      - name: Fetch File Upload Utility (checksum-verified)
+        if: vars.FILE_UPLOAD_JAR_URL != ''
+        env:
+          JAR_URL: ${{ vars.FILE_UPLOAD_JAR_URL }}
+          JAR_SHA256: ${{ vars.FILE_UPLOAD_JAR_SHA256 }}
+        run: |
+          [ -n "$JAR_SHA256" ] || { echo "::error::set FILE_UPLOAD_JAR_SHA256 next to FILE_UPLOAD_JAR_URL"; exit 1; }
+          case "$JAR_URL" in https://github.com/sailpoint-oss/*) ;; *) echo "::error::FILE_UPLOAD_JAR_URL must be a sailpoint-oss GitHub release URL"; exit 1;; esac
+          curl -fsSL "$JAR_URL" -o "$RUNNER_TEMP/file-upload-utility.jar"
+          echo "$JAR_SHA256  $RUNNER_TEMP/file-upload-utility.jar" | sha256sum -c -
+          echo "ISC_UPLOAD_JAR=$RUNNER_TEMP/file-upload-utility.jar" >> "$GITHUB_ENV"
       - name: Onboard apps
         env:
           VAULT_ADDR: ${{ vars.VAULT_ADDR }}
@@ -120,9 +136,9 @@ jobs:
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" ${WAVE:+--wave "$WAVE"} ${APPS_CSV:+--apps-csv "$APPS_CSV"} $DRY_RUN_FLAG
       - uses: actions/upload-artifact@v4
         if: always()
-        with: 
-            name: onboarding-report-${{ inputs.target }}
-            path: onboarding-report.json
+        with:
+          name: onboarding-report-${{ inputs.target }}
+          path: onboarding-report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
