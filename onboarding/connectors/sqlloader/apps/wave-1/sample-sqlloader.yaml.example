@@ -4,12 +4,11 @@
 apps:
   - appName: Sample-SqlLoader-App
     connectorType: sqlloader
-    owner: Sanson.Seah                 # identity alias (or e-mail) of the application owner
-    template: default                  # sqlLoaderTemplates.<template> in onboarding/config/defaults.yaml
+    owner: Sanson.Seah
+    template: default
     application: Sample SqlLoader App
     sqlloader:
-      connectorAttributes:             # merged onto the template's connectorAttributes
-        file: /path/on/the/va/sample-accounts.csv
+      accountFile: onboarding/connectors/sqlloader/data/{env}/Sample-SqlLoader-App.csv
     accessProfiles:
       - name: Sample SqlLoader App - Approver
         entitlementValues: [APPROVER]
