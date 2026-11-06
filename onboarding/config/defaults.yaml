@@ -28,8 +28,10 @@ ad:
 # Tip: copy connector + connectorAttributes from a working SQL Loader source (GET /v3/sources/{id})
 sqlLoaderTemplates:
   default:
-    connector: sqlloader-angularsc
-    connectorAttributes: {}
+    connector: delimited-file-angularsc
+    connectorAttributes:
+      delimiter: ","
+      hasHeader: true
     schema:
       identityAttribute: USER_ID
       displayAttribute: USER_NAME
