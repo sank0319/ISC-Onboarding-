@@ -132,13 +132,14 @@ jobs:
           ISC_CLIENT_SECRET: ${{ secrets.ISC_CLIENT_SECRET }}
           ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
           ISC_TARGET: ${{ inputs.target }}
+          JDBC_PASSWORD: ${{ secrets.JDBC_PASSWORD }}  # only read when a JDBC source is created (see jdbcTemplates.secretEnv)
           DRY_RUN_FLAG: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python onboarding/scripts/onboard.py --apps "$APPS_GLOB" ${WAVE:+--wave "$WAVE"} ${APPS_CSV:+--apps-csv "$APPS_CSV"} $DRY_RUN_FLAG
       - uses: actions/upload-artifact@v4
         if: always()
-        with:
-          name: onboarding-report-${{ inputs.target }}
-          path: onboarding-report.json
+        with: 
+            name: onboarding-report-${{ inputs.target }}
+            path: onboarding-report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
