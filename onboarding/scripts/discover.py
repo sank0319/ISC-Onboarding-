@@ -3,7 +3,8 @@
 
   discover.py connectors [--query sql]       connector types whose name/type/script name contains the text
   discover.py sources    [--query sql]       existing sources whose connector contains the text
-  discover.py source --query "Source name"   one source: connector, cluster, connectorAttributes (secrets
+  discover.py source --query "Source name" [--template jdbc]
+                                             one source: connector, cluster, connectorAttributes (secrets
                                              masked), account schema, and a defaults.yaml template block
 
 Only GET requests are made. Values whose key looks like a credential, and anything that looks like a token,
@@ -73,25 +74,41 @@ def show_sources(isc, query):
     return 0 if hits else 1
 
 
-def template(src, schema):
-    """A sqlLoaderTemplates block for defaults.yaml, built from a working source."""
+TEMPLATE_KEYS = {"sqlloader": "sqlLoaderTemplates", "jdbc": "jdbcTemplates"}
+
+
+def secret_env(connector_attrs, kind):
+    """{attribute: ENV_NAME} for the credential-looking attributes that have a value (jdbc templates only)."""
+    return {k: f"{kind.upper()}_{re.sub('[^A-Za-z0-9]+', '_', str(k)).strip('_').upper()}"
+            for k, v in (connector_attrs or {}).items() if SECRET_KEY.search(str(k)) and v not in (None, "")}
+
+
+def template(src, schema, kind="sqlloader"):
+    """A templates block for defaults.yaml, built from a working source."""
     attrs = schema.get("attributes") or []
-    return {
-        "clusterId": (src.get("cluster") or {}).get("id") or "",
-        "sqlLoaderTemplates": {"default": {
-            "connector": src.get("connector"),
-            "connectorAttributes": mask(src.get("connectorAttributes") or {}),
-            "schema": {
-                "identityAttribute": schema.get("identityAttribute"),
-                "displayAttribute": schema.get("displayAttribute"),
-                "attributes": [a.get("name") for a in attrs],
-                "entitlementColumns": [a.get("name") for a in attrs if a.get("isEntitlement")],
-            },
-            "correlation": [{"identityAttr": "uid", "accountAttr": "REPLACE_WITH_ACCOUNT_ATTRIBUTE"}],
-        }}}
+    body = {
+        "connector": src.get("connector"),
+        "clusterId" if kind == "jdbc" else "_": (src.get("cluster") or {}).get("id") or "",
+        "connectorAttributes": {k: v for k, v in mask(src.get("connectorAttributes") or {}).items()
+                                if not (kind == "jdbc" and v == MASK)},
+        "schema": {
+            "identityAttribute": schema.get("identityAttribute"),
+            "displayAttribute": schema.get("displayAttribute"),
+            "attributes": [a.get("name") for a in attrs],
+            "entitlementColumns": [a.get("name") for a in attrs if a.get("isEntitlement")],
+        },
+        "correlation": [{"identityAttr": "uid", "accountAttr": "REPLACE_WITH_ACCOUNT_ATTRIBUTE"}],
+    }
+    body.pop("_", None)
+    if kind == "jdbc":
+        body["secretEnv"] = secret_env(src.get("connectorAttributes"), kind)
+    out = {TEMPLATE_KEYS[kind]: {"default": body}}
+    if kind != "jdbc":
+        out = {"clusterId": (src.get("cluster") or {}).get("id") or "", **out}
+    return out
 
 
-def show_source(isc, name):
+def show_source(isc, name, kind="sqlloader"):
     found = isc.request("GET", "/v3/sources", params={"filters": f'name eq "{name.replace(chr(34), "")}"', "limit": 2})
     if not found:
         print(f"no source named '{name}'")
@@ -106,7 +123,7 @@ def show_source(isc, name):
     print(f"account schema: {schema.get('name')}  identity={schema.get('identityAttribute')}  "
           f"display={schema.get('displayAttribute')}  attributes={[a.get('name') for a in schema.get('attributes') or []]}")
     print("\n--- merge into onboarding/config/defaults.yaml (masked values must be filled in, secrets never committed) ---")
-    print(yaml.safe_dump(template(src, schema), sort_keys=False, default_flow_style=False).rstrip())
+    print(yaml.safe_dump(template(src, schema, kind), sort_keys=False, default_flow_style=False).rstrip())
     return 0
 
 
@@ -114,6 +131,8 @@ def main(argv=None, isc=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("what", choices=["connectors", "sources", "source"])
     p.add_argument("--query", default=None, help="text to look for (default: sql; required for 'source')")
+    p.add_argument("--template", choices=sorted(TEMPLATE_KEYS), default="sqlloader",
+                   help="which defaults.yaml template block 'source' prints (default: sqlloader)")
     args = p.parse_args(argv)
     if args.what == "source" and not args.query:
         p.error("'source' needs --query \"<source name>\"")
@@ -125,7 +144,9 @@ def main(argv=None, isc=None):
                 register_secret(creds[k])
             isc = ISCClient(creds["ISC_TENANT"], creds["ISC_CLIENT_ID"], creds["ISC_CLIENT_SECRET"],
                             base_url=creds.get("ISC_BASE_URL"))
-        return {"connectors": show_connectors, "sources": show_sources, "source": show_source}[args.what](isc, query)
+        if args.what == "source":
+            return show_source(isc, query, args.template)
+        return {"connectors": show_connectors, "sources": show_sources}[args.what](isc, query)
     except (SecretsError, ISCError) as e:
         print(f"discover failed: {e}", file=sys.stderr)
         return 2
