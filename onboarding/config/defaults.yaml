@@ -3,7 +3,7 @@ deleteThreshold: 10
 requestCommentRequired: true
 updateExistingAccessProfiles: false   # true = re-apply entitlements/approvals on existing APs
 aggregationTimeoutMinutes: 30
-clusterId: ""                          # VA cluster ID for direct-connect sources (SQL Loader)
+clusterId: ""                          # VA cluster ID, only for connectors that run on a VA (not needed for Delimited File)
 
 connectors:
   delimited: delimited-file-angularsc  # verify with GET /v3/connectors on your tenant
@@ -25,13 +25,33 @@ ad:
   syncRemoveGovernanceGroupMembers: false   # true = remove members not in the attribute (re-runs)
 
 # ---------------- SQL Loader templates ----------------
-# Tip: copy connector + connectorAttributes from a working SQL Loader source (GET /v3/sources/{id})
+# In this project an app of type "sqlloader" is an ISC *Delimited File* source (no VA cluster needed),
+# so the template uses the Delimited File connector.
 sqlLoaderTemplates:
   default:
     connector: delimited-file-angularsc
     connectorAttributes:
       delimiter: ","
       hasHeader: true
+    schema:
+      identityAttribute: USER_ID
+      displayAttribute: USER_NAME
+      attributes: [USER_ID, USER_NAME, EMAIL, STATUS, ROLE]
+      entitlementColumns: [ROLE]
+    correlation:
+      - identityAttr: uid
+        accountAttr: USER_ID
+
+# ---------------- JDBC templates ----------------
+# JDBC sources run on a virtual appliance: set clusterId (here or globally above) and the connector script name.
+# Copy connector + connectorAttributes from a working JDBC source with the ISC discover workflow
+# (what = source, query = <source name>); credentials become secretEnv entries, never YAML values.
+jdbcTemplates:
+  default:
+    connector: REPLACE_WITH_JDBC_SCRIPT_NAME
+    clusterId: ""
+    connectorAttributes: {}            # url, driver class, user, account query ... (no passwords here)
+    secretEnv: {}                      # e.g. { password: JDBC_PASSWORD }: read from the environment when the source is created
     schema:
       identityAttribute: USER_ID
       displayAttribute: USER_NAME
