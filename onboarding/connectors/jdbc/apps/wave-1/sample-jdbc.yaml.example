@@ -1,0 +1,16 @@
+# JDBC sample app. Inactive: the default glob only reads *.yaml.
+# Activate: finish onboarding/connectors/jdbc/README.md, then rename to <your-app>.yaml and edit the values.
+apps:
+  - appName: Sample-Jdbc-App
+    connectorType: jdbc
+    owner: Sanson.Seah
+    template: default                  # jdbcTemplates.<template> in onboarding/config/defaults.yaml
+    application: Sample JDBC App
+    jdbc:
+      connectorAttributes:             # merged onto the template's connectorAttributes (no passwords)
+        url: jdbc:postgresql://db.example.com:5432/hr
+      secretEnv:
+        password: JDBC_PASSWORD        # environment variable holding the database password
+    accessProfiles:
+      - name: Sample JDBC App - Approver
+        entitlementValues: [APPROVER]
