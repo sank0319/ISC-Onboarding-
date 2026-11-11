@@ -13,6 +13,11 @@ on:
         type: choice
         options: [connectors, sources, source]
         default: connectors
+      template:
+        description: "For 'source': which defaults.yaml block to print"
+        type: choice
+        options: [sqlloader, jdbc]
+        default: sqlloader
       query:
         description: "Text to look for (default sql). For 'source': the exact source name"
         type: string
@@ -41,10 +46,11 @@ jobs:
       ISC_BASE_URL: ${{ vars.ISC_BASE_URL }}
       WHAT: ${{ inputs.what }}
       QUERY: ${{ inputs.query }}
+      TEMPLATE: ${{ inputs.template }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11", cache: pip }
       - run: pip install -r requirements.txt
       - name: Read-only lookup (GET requests only)
-        run: python onboarding/scripts/discover.py "$WHAT" --query "$QUERY"
+        run: python onboarding/scripts/discover.py "$WHAT" --query "$QUERY" --template "$TEMPLATE"
