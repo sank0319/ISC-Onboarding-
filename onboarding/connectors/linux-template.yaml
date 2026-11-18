@@ -1,0 +1,16 @@
+# Linux connector template (SSH through a virtual appliance). Fill in from a working source with the ISC discover
+# workflow (what = source, template = linux). Credentials never go here.
+linuxTemplates:
+  default:
+    connector: REPLACE_WITH_LINUX_SCRIPT_NAME
+    clusterId: ""                      # the virtual appliance cluster
+    connectorAttributes: {}            # host, port, user, authentication method ... (no secrets here)
+    secretEnv: {}                      # e.g. { password: LINUX_PASSWORD }: read from the environment when the source is created
+    schema:
+      identityAttribute: USER_ID
+      displayAttribute: USER_NAME
+      attributes: [USER_ID, USER_NAME, STATUS, GROUP]
+      entitlementColumns: [GROUP]
+    correlation:
+      - identityAttr: uid
+        accountAttr: USER_ID
