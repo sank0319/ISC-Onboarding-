@@ -1,0 +1,7 @@
+# Delimited File connector: the ISC connector script name and default connector attributes.
+connectors:
+  delimited: delimited-file-angularsc  # verify with GET /v3/connectors on your tenant
+
+delimitedConnectorAttributes:
+  delimiter: ","
+  hasHeader: true
