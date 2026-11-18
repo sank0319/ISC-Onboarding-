@@ -1,0 +1,16 @@
+# Windows connector template (runs on a virtual appliance). Fill in from a working source with the ISC discover
+# workflow (what = source, template = windows). Credentials never go here.
+windowsTemplates:
+  default:
+    connector: REPLACE_WITH_WINDOWS_SCRIPT_NAME
+    clusterId: ""                      # the virtual appliance cluster
+    connectorAttributes: {}            # host, domain, account settings ... (no secrets here)
+    secretEnv: {}                      # e.g. { password: WINDOWS_PASSWORD }: read from the environment when the source is created
+    schema:
+      identityAttribute: USER_ID
+      displayAttribute: USER_NAME
+      attributes: [USER_ID, USER_NAME, STATUS, GROUP]
+      entitlementColumns: [GROUP]
+    correlation:
+      - identityAttr: uid
+        accountAttr: USER_ID
