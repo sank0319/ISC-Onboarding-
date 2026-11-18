@@ -65,6 +65,6 @@ def test_inline_credentials_are_rejected(kind, app, defaults):
 def test_each_connector_has_the_standard_folder_shape():
     for t in KINDS:
         base = ROOT / "onboarding" / "connectors" / t
-        for rel in ("apps/wave-1", "apps/wave-2", "data", "template.yaml", "README.md"):
+        for rel in ("apps/wave-1", "apps/wave-2", "data", f"{t}-template.yaml", "README.md"):
             assert (base / rel).exists(), f"{t}/{rel}"
         assert list((base / "apps" / "wave-1").glob("*.yaml.example")), t
