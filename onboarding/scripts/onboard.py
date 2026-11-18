@@ -17,11 +17,12 @@ import os
 import sys
 
 from batch import batch_errors, layout_errors, load_apps, select_apps, target_env, with_env
-from common import load_yaml
+from common import load_defaults
 from isc_client import ISCClient
 from onboarder import Onboarder
 from run_log import RunLog, register_secret
 from secrets_store import load_credentials
+from simulator import fill_placeholders, rehearsal_isc
 
 log = logging.getLogger("onboard")
 
@@ -50,11 +51,18 @@ def main():
     p.add_argument("--defaults", default="onboarding/config/defaults.yaml")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--validate-only", action="store_true")
+    p.add_argument("--offline", action="store_true",
+                   help="rehearse the whole batch against an in-memory ISC simulator: no tenant, no credentials, "
+                        "nothing is sent anywhere; unset tenant values (REPLACE_*) are simulated")
     p.add_argument("--report", default="onboarding-report.json")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-    defaults = load_yaml(args.defaults)
+    defaults = load_defaults(args.defaults)
+    placeholders = []
+    if args.offline:
+        defaults, placeholders = fill_placeholders(defaults)
+        os.environ.pop("ISC_UPLOAD_JAR", None)  # the utility needs the real API
     entries = load_apps(args.apps, args.wave)
     if args.apps_csv:
         entries, errors = select_apps(entries, args.apps_csv)
@@ -70,6 +78,16 @@ def main():
     log.info("Validated %d app(s)", len(apps))
     if args.validate_only:
         return
+
+    if args.offline:
+        log.info("OFFLINE REHEARSAL: simulator only, nothing is sent to ISC")
+        for note in placeholders:
+            log.info("  simulated: %s", note)
+        results = [Onboarder(rehearsal_isc(apps, defaults, args.dry_run), defaults).run(a) for a in apps]
+        write_summary(results, args.dry_run, args.report)
+        failed = [r["app"] for r in results if r["status"] != "ok"]
+        log.info("Rehearsal done: %d ok, %d failed %s", len(results) - len(failed), len(failed), failed or "")
+        sys.exit(1 if failed else 0)
 
     runlog = RunLog(os.environ.get("ISC_LOG_DIR") or "onboarding/logs",
                     target=os.environ.get("ISC_TARGET"), dry_run=args.dry_run)
