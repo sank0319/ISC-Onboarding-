@@ -71,11 +71,11 @@ def test_configured_templates_are_left_alone(defaults):
     assert not any("jdbcTemplates" in n for n in notes)
 
 
-# ---- per-connector template.yaml files
+# ---- per-connector <type>-template.yaml files
 def test_template_files_are_merged_and_defaults_yaml_wins(tmp_path):
     (tmp_path / "config").mkdir()
     (tmp_path / "connectors" / "x").mkdir(parents=True)
-    (tmp_path / "connectors" / "x" / "template.yaml").write_text("xTemplates:\n  default: {a: 1, b: 2}\nkeep: from-template\n")
+    (tmp_path / "connectors" / "x" / "x-template.yaml").write_text("xTemplates:\n  default: {a: 1, b: 2}\nkeep: from-template\n")
     (tmp_path / "config" / "defaults.yaml").write_text("xTemplates:\n  default: {b: 3}\ntop: 1\n")
     got = common.load_defaults(tmp_path / "config" / "defaults.yaml")
     assert got == {"xTemplates": {"default": {"a": 1, "b": 3}}, "keep": "from-template", "top": 1}
