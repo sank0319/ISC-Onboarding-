@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Read-only look at the tenant: find a connector's settings to copy into onboarding/config/defaults.yaml.
+"""Read-only look at the tenant: find a connector's settings to copy into onboarding/connectors/<type>/template.yaml.
 
   discover.py connectors [--query sql]       connector types whose name/type/script name contains the text
   discover.py sources    [--query sql]       existing sources whose connector contains the text
-  discover.py source --query "Source name" [--template jdbc]
+  discover.py source --query "Source name" [--template jdbc|api|windows|linux]
                                              one source: connector, cluster, connectorAttributes (secrets
-                                             masked), account schema, and a defaults.yaml template block
+                                             masked), account schema, and a template block for onboarding/connectors/<type>/template.yaml
 
 Only GET requests are made. Values whose key looks like a credential, and anything that looks like a token,
 password or key, are masked before printing; review the output before pasting it anywhere.
@@ -74,7 +74,9 @@ def show_sources(isc, query):
     return 0 if hits else 1
 
 
-TEMPLATE_KEYS = {"sqlloader": "sqlLoaderTemplates", "jdbc": "jdbcTemplates"}
+TEMPLATE_KEYS = {"sqlloader": "sqlLoaderTemplates", "jdbc": "jdbcTemplates", "api": "apiTemplates",
+                 "windows": "windowsTemplates", "linux": "linuxTemplates"}
+CLUSTER_IN_TEMPLATE = ("jdbc", "api", "windows", "linux")  # these templates carry clusterId and secretEnv
 
 
 def secret_env(connector_attrs, kind):
@@ -84,13 +86,13 @@ def secret_env(connector_attrs, kind):
 
 
 def template(src, schema, kind="sqlloader"):
-    """A templates block for defaults.yaml, built from a working source."""
+    """A templates block for a connector template.yaml, built from a working source."""
     attrs = schema.get("attributes") or []
     body = {
         "connector": src.get("connector"),
-        "clusterId" if kind == "jdbc" else "_": (src.get("cluster") or {}).get("id") or "",
+        "clusterId" if kind in CLUSTER_IN_TEMPLATE else "_": (src.get("cluster") or {}).get("id") or "",
         "connectorAttributes": {k: v for k, v in mask(src.get("connectorAttributes") or {}).items()
-                                if not (kind == "jdbc" and v == MASK)},
+                                if not (kind in CLUSTER_IN_TEMPLATE and v == MASK)},
         "schema": {
             "identityAttribute": schema.get("identityAttribute"),
             "displayAttribute": schema.get("displayAttribute"),
@@ -100,10 +102,10 @@ def template(src, schema, kind="sqlloader"):
         "correlation": [{"identityAttr": "uid", "accountAttr": "REPLACE_WITH_ACCOUNT_ATTRIBUTE"}],
     }
     body.pop("_", None)
-    if kind == "jdbc":
+    if kind in CLUSTER_IN_TEMPLATE:
         body["secretEnv"] = secret_env(src.get("connectorAttributes"), kind)
     out = {TEMPLATE_KEYS[kind]: {"default": body}}
-    if kind != "jdbc":
+    if kind not in CLUSTER_IN_TEMPLATE:
         out = {"clusterId": (src.get("cluster") or {}).get("id") or "", **out}
     return out
 
@@ -122,7 +124,7 @@ def show_source(isc, name, kind="sqlloader"):
     print(f"connector: {src.get('connector')}   cluster: {cluster.get('id')} ({cluster.get('name')})")
     print(f"account schema: {schema.get('name')}  identity={schema.get('identityAttribute')}  "
           f"display={schema.get('displayAttribute')}  attributes={[a.get('name') for a in schema.get('attributes') or []]}")
-    print("\n--- merge into onboarding/config/defaults.yaml (masked values must be filled in, secrets never committed) ---")
+    print("\n--- merge into onboarding/connectors/<type>/template.yaml (masked values must be filled in, secrets never committed) ---")
     print(yaml.safe_dump(template(src, schema, kind), sort_keys=False, default_flow_style=False).rstrip())
     return 0
 
@@ -132,7 +134,7 @@ def main(argv=None, isc=None):
     p.add_argument("what", choices=["connectors", "sources", "source"])
     p.add_argument("--query", default=None, help="text to look for (default: sql; required for 'source')")
     p.add_argument("--template", choices=sorted(TEMPLATE_KEYS), default="sqlloader",
-                   help="which defaults.yaml template block 'source' prints (default: sqlloader)")
+                   help="which template block for onboarding/connectors/<type>/template.yaml 'source' prints (default: sqlloader)")
     args = p.parse_args(argv)
     if args.what == "source" and not args.query:
         p.error("'source' needs --query \"<source name>\"")
