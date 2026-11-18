@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 import batch
-from common import load_yaml
+from common import load_defaults
 from conftest import ROOT
 
 CONFIGS = sorted(glob.glob(str(ROOT / "onboarding" / "connectors" / "*" / "apps" / "**" / "*.yaml"), recursive=True))
 EXAMPLES = sorted(glob.glob(str(ROOT / "docs" / "examples" / "*.yaml")))
-FILE_KEYS = {"delimited": ("accountFile",), "ad": ("entitlementExport",)}
+FILE_KEYS = {"delimited": ("accountFile",), "sqlloader": ("accountFile",), "ad": ("entitlementExport",)}
 
 
 def rel(p):
@@ -58,7 +58,7 @@ def test_example_batch_is_outside_the_default_glob():
 
 def test_default_glob_validates_with_the_checked_in_defaults():
     entries = batch.load_apps("onboarding/connectors/*/apps/**/*.yaml")
-    defaults = load_yaml("onboarding/config/defaults.yaml")
+    defaults = load_defaults("onboarding/config/defaults.yaml")
     apps = [batch.with_env(a, "sandbox") for _, a in entries]
     assert batch.layout_errors(entries) == [] and batch.batch_errors(apps, defaults) == []
 
@@ -90,11 +90,31 @@ def test_sqlloader_example_is_valid_once_activated(defaults):
     apps = batch.file_apps(str(SQL_EXAMPLE))
     entries = [(rel(path), a) for a in apps]
     assert batch.layout_errors(entries) == []
-    assert batch.batch_errors(apps, defaults) == []
+    assert batch.batch_errors(batch.with_env(apps, "sandbox"), defaults) == []  # {env} resolves at run time
     assert batch.wave_of(path) == 1
 
 
 def test_sqlloader_example_is_rejected_while_the_connector_is_a_placeholder():
-    placeholder = load_yaml("onboarding/config/defaults.yaml")
-    errs = batch.batch_errors(batch.file_apps(str(SQL_EXAMPLE)), placeholder)
+    cfg = load_defaults("onboarding/config/defaults.yaml")
+    cfg["sqlLoaderTemplates"]["default"]["connector"] = "REPLACE_WITH_SQL_LOADER_SCRIPT_NAME"
+    errs = batch.batch_errors(batch.with_env(batch.file_apps(str(SQL_EXAMPLE)), "sandbox"), cfg)
     assert any("connector script name not set" in e for e in errs)
+
+
+def test_sqlloader_apps_use_the_delimited_file_connector():
+    cfg = load_defaults("onboarding/config/defaults.yaml")
+    assert cfg["sqlLoaderTemplates"]["default"]["connector"] == cfg["connectors"]["delimited"]
+    assert not cfg["sqlLoaderTemplates"]["default"].get("clusterId")
+
+
+JDBC_EXAMPLE = ROOT / "onboarding" / "connectors" / "jdbc" / "apps" / "wave-1" / "sample-jdbc.yaml.example"
+
+
+def test_jdbc_example_is_inactive_and_valid_once_the_tenant_values_are_set(defaults):
+    assert not list(JDBC_EXAMPLE.parent.glob("*.yaml"))  # inactive until renamed
+    path = JDBC_EXAMPLE.with_suffix("")
+    apps = batch.file_apps(str(JDBC_EXAMPLE))
+    assert batch.layout_errors([(rel(path), a) for a in apps]) == []
+    assert batch.batch_errors(apps, defaults) == []  # the defaults fixture stands in for the real script name + cluster
+    assert apps[0]["jdbc"]["connectorAttributes"]["url"].startswith("jdbc:")
+    assert "password" not in apps[0]["jdbc"]["connectorAttributes"]
