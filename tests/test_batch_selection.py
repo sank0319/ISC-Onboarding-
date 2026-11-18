@@ -132,7 +132,7 @@ def test_csv_extra_columns_and_bom_are_fine(csv_text, tmp_path):
     ("applicationName,applicationType\n", "has no rows"),
     ("applicationName,applicationType\n,delimited\n", "line 2: applicationName and applicationType are both required"),
     ("applicationName,applicationType\nA,\n", "line 2: applicationName and applicationType are both required"),
-    ("applicationName,applicationType\nA,oracle\n", "unknown applicationType 'oracle' (known: ['ad', 'delimited', 'sqlloader'])"),
+    ("applicationName,applicationType\nA,oracle\n", "unknown applicationType 'oracle' (known: ['ad', 'api', 'delimited', 'jdbc', 'linux', 'sqlloader', 'windows'])"),
     ("applicationName,applicationType\nNope,delimited\n", "line 2 (Nope): no app with this appName"),
     ("applicationName,applicationType\nA,delimited\nB,delimited\n a ,delimited\n", "line 4 (a): duplicate of line 2"),
     ("applicationName,applicationType\nA,ad\n", "applicationType 'ad' does not match connectorType 'delimited'"),
