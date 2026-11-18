@@ -1,0 +1,16 @@
+# API (web services) sample app with made-up hosts (.invalid never resolves). Inactive: the default glob only reads *.yaml.
+# Activate: finish onboarding/connectors/api/README.md (real connector script name and settings), then rename to <your-app>.yaml.
+apps:
+  - appName: Sample-Api-App
+    connectorType: api
+    owner: Sanson.Seah
+    template: default                  # apiTemplates.<template> in onboarding/connectors/api/api-template.yaml
+    application: Sample API App
+    api:
+      connectorAttributes:             # merged onto the template's connectorAttributes (no secrets here)
+        baseUrl: https://hr-api.example.invalid/v1
+      secretEnv:
+        token: API_TOKEN   # environment variable holding the API token
+    accessProfiles:
+      - name: Sample API App - Approver
+        entitlementValues: [APPROVER]

@@ -1,16 +1,18 @@
-# API (web services) sample app with made-up hosts (.invalid never resolves). Inactive: the default glob only reads *.yaml.
-# Activate: finish onboarding/connectors/api/README.md (real connector script name and settings), then rename to <your-app>.yaml.
+# JDBC sample app with made-up hosts (example.invalid never resolves). Inactive: the default glob only reads *.yaml.
+# Activate: finish onboarding/connectors/jdbc/README.md (real connector script name + cluster ID in defaults.yaml),
+# point url/user at a real database, then rename to <your-app>.yaml.
 apps:
-  - appName: Sample-Api-App
-    connectorType: api
+  - appName: Sample-Jdbc-App
+    connectorType: jdbc
     owner: Sanson.Seah
-    template: default                  # apiTemplates.<template> in onboarding/connectors/api/api-template.yaml
-    application: Sample API App
-    api:
-      connectorAttributes:             # merged onto the template's connectorAttributes (no secrets here)
-        baseUrl: https://hr-api.example.invalid/v1
+    template: default                  # jdbcTemplates.<template> in onboarding/config/defaults.yaml
+    application: Sample JDBC App
+    jdbc:
+      connectorAttributes:             # merged onto the template's connectorAttributes (no passwords here)
+        url: jdbc:postgresql://hr-db01.example.invalid:5432/hrdb
+        user: svc_isc_readonly
       secretEnv:
-        token: API_TOKEN   # environment variable holding the API token
+        password: JDBC_PASSWORD        # environment variable holding the database password
     accessProfiles:
-      - name: Sample API App - Approver
+      - name: Sample JDBC App - Approver
         entitlementValues: [APPROVER]

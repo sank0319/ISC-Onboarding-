@@ -1,0 +1,18 @@
+# Windows connector
+
+An app with `connectorType: windows` becomes a Windows source in ISC; a virtual appliance reads the Windows server. There is no feed file.
+
+Folders: `apps/` (app definitions, in `wave-N/` folders), `data/` (empty on purpose), `windows-template.yaml` (this connector's
+template: connector script name, settings, schema, correlation).
+
+## Activate (needs the tenant)
+1. Find the connector script name: Actions -> **ISC discover (read-only)**, what = `connectors`, query = `windows`.
+2. If a working Windows source exists, copy its settings: what = `source`, query = its exact name, template = `windows`.
+   Paste the printed block into `windows-template.yaml`. Masked credentials become `secretEnv` entries.
+3. Cluster: Required: the virtual appliance cluster that can reach the server.
+4. Add the environment variable named in `secretEnv` (e.g. `WINDOWS_PASSWORD`) as a secret of the GitHub environment and pass it to the
+   run in `.github/workflows/isc-onboarding.yml`. It is only read when a source is created.
+5. Copy `apps/wave-1/sample-windows.yaml.example` to `<app>.yaml`, edit it, then dry-run, then run.
+
+Not verified against a tenant yet: the exact connector attribute names, and whether the schema must be discovered by
+ISC instead of written by the pipeline. `python onboarding/scripts/onboard.py --offline` rehearses it without a tenant.

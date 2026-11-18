@@ -1,14 +1,15 @@
 """Dry-run must never write; a second real run must neither fail nor duplicate."""
 import pytest
 
-from conftest import run_batch
+from conftest import SQL_CSV_TEXT, run_batch
 
 CREATES = [r"/v3/sources$", r"/beta/source-apps$", "/v3/access-profiles$", r"/beta/workgroups$"]
 
 
 @pytest.fixture
-def sql_app():
+def sql_app(csv_file):
     return {"appName": "Sql-App", "connectorType": "sqlloader", "owner": "asmith", "application": "Sql App",
+            "sqlloader": {"accountFile": csv_file(SQL_CSV_TEXT)},
             "accessProfiles": [{"name": "Sql App - Role", "entitlementValues": ["ROLE-A"]}]}
 
 

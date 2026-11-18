@@ -1,0 +1,18 @@
+# Linux sample app with made-up hosts (.invalid never resolves). Inactive: the default glob only reads *.yaml.
+# Activate: finish onboarding/connectors/linux/README.md (real connector script name and settings), then rename to <your-app>.yaml.
+apps:
+  - appName: Sample-Linux-App
+    connectorType: linux
+    owner: Sanson.Seah
+    template: default                  # linuxTemplates.<template> in onboarding/connectors/linux/linux-template.yaml
+    application: Sample Linux App
+    linux:
+      connectorAttributes:             # merged onto the template's connectorAttributes (no secrets here)
+        host: lnx-srv01.example.invalid
+        port: 22
+        user: svc_isc_readonly
+      secretEnv:
+        password: LINUX_PASSWORD   # environment variable holding the service account password (or key)
+    accessProfiles:
+      - name: Sample Linux App - Approver
+        entitlementValues: [APPROVER]

@@ -1,0 +1,17 @@
+# Windows sample app with made-up hosts (.invalid never resolves). Inactive: the default glob only reads *.yaml.
+# Activate: finish onboarding/connectors/windows/README.md (real connector script name and settings), then rename to <your-app>.yaml.
+apps:
+  - appName: Sample-Windows-App
+    connectorType: windows
+    owner: Sanson.Seah
+    template: default                  # windowsTemplates.<template> in onboarding/connectors/windows/windows-template.yaml
+    application: Sample Windows App
+    windows:
+      connectorAttributes:             # merged onto the template's connectorAttributes (no secrets here)
+        host: win-srv01.example.invalid
+        user: svc_isc_readonly
+      secretEnv:
+        password: WINDOWS_PASSWORD   # environment variable holding the service account password
+    accessProfiles:
+      - name: Sample Windows App - Approver
+        entitlementValues: [APPROVER]

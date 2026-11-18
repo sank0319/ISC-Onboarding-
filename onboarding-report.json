@@ -1,0 +1,50 @@
+[
+  {
+    "app": "Sample-Api-App",
+    "type": "api",
+    "status": "ok",
+    "source": "created",
+    "entitlementsRequestable": 6,
+    "application": "Sample API App"
+  },
+  {
+    "app": "Test-Delimited-App",
+    "type": "delimited",
+    "status": "ok",
+    "source": "created",
+    "entitlementsRequestable": 2,
+    "application": "Test Delimited App"
+  },
+  {
+    "app": "Sample-Jdbc-App",
+    "type": "jdbc",
+    "status": "ok",
+    "source": "created",
+    "entitlementsRequestable": 6,
+    "application": "Sample JDBC App"
+  },
+  {
+    "app": "Sample-Linux-App",
+    "type": "linux",
+    "status": "ok",
+    "source": "created",
+    "entitlementsRequestable": 6,
+    "application": "Sample Linux App"
+  },
+  {
+    "app": "Sample-SqlLoader-App",
+    "type": "sqlloader",
+    "status": "ok",
+    "source": "created",
+    "entitlementsRequestable": 2,
+    "application": "Sample SqlLoader App"
+  },
+  {
+    "app": "Sample-Windows-App",
+    "type": "windows",
+    "status": "ok",
+    "source": "created",
+    "entitlementsRequestable": 6,
+    "application": "Sample Windows App"
+  }
+]

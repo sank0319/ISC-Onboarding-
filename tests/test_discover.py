@@ -80,3 +80,14 @@ def test_errors_are_reported_not_raised(capsys):
         def get_all(self, path, params=None):
             raise ISCError("boom")
     assert discover.main(["sources"], isc=Boom()) == 2
+
+
+def test_jdbc_template_turns_credentials_into_secret_env_and_never_prints_them(capsys):
+    src = {**SRC, "connector": "jdbc-script", "connectorAttributes": {
+        "url": "jdbc:postgresql://db/hr", "user": "svc", "password": SECRET}}
+    isc = StubISC(sources=[src], schemas=SCHEMA)
+    assert discover.main(["source", "--query", "HR Loader", "--template", "jdbc"], isc=isc) == 0
+    out = capsys.readouterr().out
+    assert SECRET not in out
+    assert "jdbcTemplates:" in out and "secretEnv:" in out and "password: JDBC_PASSWORD" in out
+    assert "clusterId: cl1" in out and "url: jdbc:postgresql://db/hr" in out
