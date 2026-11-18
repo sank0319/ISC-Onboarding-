@@ -1,0 +1,16 @@
+# API (web services) connector template. Fill in from a working source with the ISC discover workflow
+# (what = source, template = api): connector script name and the connection settings. Credentials never go here.
+apiTemplates:
+  default:
+    connector: REPLACE_WITH_API_SCRIPT_NAME
+    clusterId: ""                      # usually not needed: ISC calls the API directly
+    connectorAttributes: {}            # base URL, authentication type, operations ... (no secrets here)
+    secretEnv: {}                      # e.g. { token: API_TOKEN }: read from the environment when the source is created
+    schema:
+      identityAttribute: USER_ID
+      displayAttribute: USER_NAME
+      attributes: [USER_ID, USER_NAME, EMAIL, STATUS, ROLE]
+      entitlementColumns: [ROLE]
+    correlation:
+      - identityAttr: uid
+        accountAttr: USER_ID
