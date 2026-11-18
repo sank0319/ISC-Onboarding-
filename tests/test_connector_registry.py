@@ -32,7 +32,7 @@ def scratch_registry(monkeypatch):
 
 
 def test_builtin_connectors_are_registered():
-    assert sorted(connectors.REGISTRY) == ["ad", "delimited", "sqlloader"]
+    assert sorted(connectors.REGISTRY) == ["ad", "api", "delimited", "jdbc", "linux", "sqlloader", "windows"]
     assert connectors.get("ad").creates_source is False
     assert connectors.get("delimited").creates_source is True
 
@@ -76,11 +76,11 @@ def test_connector_without_type_is_an_error(scratch_registry):
 
 @pytest.mark.parametrize("bad", ["oracle", "", None, ["ad"]])
 def test_unknown_type_is_an_error(bad):
-    with pytest.raises(UnknownConnector, match="known: \\['ad', 'delimited', 'sqlloader'\\]"):
+    with pytest.raises(UnknownConnector, match="known: \\['ad', 'api', 'delimited', 'jdbc', 'linux', 'sqlloader', 'windows'\\]"):
         connectors.get(bad)
 
 
 @pytest.mark.parametrize("bad", ["oracle", None, ["ad"]])
 def test_unknown_type_fails_validation_listing_registered_types(bad, defaults):
     errs = batch.batch_errors([{"appName": "A", "connectorType": bad, "owner": "o"}], defaults)
-    assert any("connectorType must be one of ['ad', 'delimited', 'sqlloader']" in e for e in errs)
+    assert any("connectorType must be one of ['ad', 'api', 'delimited', 'jdbc', 'linux', 'sqlloader', 'windows']" in e for e in errs)
