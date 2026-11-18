@@ -1,0 +1,17 @@
+# SQL Loader connector template.
+# In this project an app of type "sqlloader" is an ISC *Delimited File* source (no VA cluster needed),
+# so the template uses the Delimited File connector.
+sqlLoaderTemplates:
+  default:
+    connector: delimited-file-angularsc
+    connectorAttributes:
+      delimiter: ","
+      hasHeader: true
+    schema:
+      identityAttribute: USER_ID
+      displayAttribute: USER_NAME
+      attributes: [USER_ID, USER_NAME, EMAIL, STATUS, ROLE]
+      entitlementColumns: [ROLE]
+    correlation:
+      - identityAttr: uid
+        accountAttr: USER_ID
