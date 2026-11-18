@@ -3,7 +3,9 @@ import re
 
 import pytest
 
+import common
 import onboard
+from conftest import SQL_CSV_TEXT
 
 HDR = "EmployeeID,UserName,Email,Status,Role"
 ROW = "1001,u1,u1@example.com,Active,Approver"
@@ -66,7 +68,7 @@ def test_directory_as_account_file(delim_app, defaults, tmp_path):
 
 def test_bom_header_is_stripped(delim_app, csv_file, defaults):
     path = csv_file(raw=b"\xef\xbb\xbf" + f"{HDR}\n{ROW}\n".encode())
-    assert onboard.read_csv(path)[0][0] == "EmployeeID"
+    assert common.read_csv(path)[0][0] == "EmployeeID"
     assert errors(delim_app(delimited={"accountFile": path}), defaults) == []
 
 
@@ -78,8 +80,9 @@ def test_custom_delimiter_is_honoured(delim_app, csv_file, defaults):
 
 # ---- sqlloader
 @pytest.fixture
-def sql_app():
-    return {"appName": "Sql", "connectorType": "sqlloader", "owner": "asmith", "template": "default"}
+def sql_app(csv_file):
+    return {"appName": "Sql", "connectorType": "sqlloader", "owner": "asmith", "template": "default",
+            "sqlloader": {"accountFile": csv_file(SQL_CSV_TEXT)}}
 
 
 def test_sqlloader_placeholder_connector_rejected(sql_app, defaults):
@@ -103,6 +106,20 @@ def test_sqlloader_template_problems(sql_app, defaults, tweak):
 
 def test_sqlloader_valid_template_passes(sql_app, defaults):
     assert errors(sql_app, defaults) == []
+
+
+def test_sqlloader_needs_an_account_file(sql_app, defaults):
+    sql_app.pop("sqlloader")
+    assert any("sqlloader.accountFile missing" in e for e in errors(sql_app, defaults))
+
+
+def test_sqlloader_account_file_must_exist_and_have_the_schema_columns(sql_app, defaults, csv_file):
+    sql_app["sqlloader"]["accountFile"] = "/nope.csv"
+    assert any("not found" in e for e in errors(sql_app, defaults))
+    sql_app["sqlloader"]["accountFile"] = csv_file("USER_ID,USER_NAME\n1,a\n")
+    assert any("column 'ROLE' not in accountFile header" in e for e in errors(sql_app, defaults))
+    sql_app["sqlloader"]["accountFile"] = csv_file("USER_ID,USER_NAME,EMAIL,STATUS,ROLE\n")
+    assert any("no account rows" in e for e in errors(sql_app, defaults))
 
 
 # ---- AD export
