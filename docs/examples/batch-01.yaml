@@ -5,8 +5,7 @@ apps:
     owner: jdoe@example.com
     template: default
     sqlloader:
-      connectorAttributes:
-        file: /data/claims/accounts.csv     # app-specific overrides merged onto the template
+      accountFile: docs/examples/feeds/Claims-Portal.csv   # uploaded to the source (load-accounts)
     application: Claims Portal
     accessProfiles:                          # optional for non-AD
       - name: Claims Portal - Approver
