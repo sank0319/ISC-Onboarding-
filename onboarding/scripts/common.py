@@ -15,7 +15,7 @@ def load_defaults(path):
     """Global defaults.yaml plus every onboarding/connectors/<type>/template.yaml next to it (the connector's own
     settings and templates). Values in defaults.yaml win, so an older all-in-one defaults.yaml keeps working."""
     merged = {}
-    for tpl in sorted((Path(path).resolve().parent.parent / "connectors").glob("*/template.yaml")):
+    for tpl in sorted((Path(path).resolve().parent.parent / "connectors").glob("*/*-template.yaml")):
         merged = deep_merge(merged, load_yaml(tpl))
     return deep_merge(merged, load_yaml(path))
 
