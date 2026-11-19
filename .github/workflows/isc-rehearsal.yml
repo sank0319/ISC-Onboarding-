@@ -1,0 +1,30 @@
+name: ISC offline rehearsal
+
+# Runs the offline tests and rehearses every onboarding config against the in-memory simulator.
+# No tenant, no credentials, no Vault.
+
+on:
+  pull_request:
+    paths:
+      - "onboarding/**"
+      - "tests/**"
+      - "requirements*.txt"
+      - ".github/workflows/isc-rehearsal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run the tests
+        run: python -m pytest -q tests
+      - name: Rehearse every config, including the inactive samples
+        run: python onboarding/scripts/onboard.py --offline --apps "onboarding/connectors/*/apps/**/*.yaml*"

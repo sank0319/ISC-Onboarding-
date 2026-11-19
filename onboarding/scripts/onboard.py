@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bulk onboarding of applications into SailPoint ISC (run from GitHub Actions).
 
-Connector handlers live one per file in onboarding/scripts/connectors/ (ad, delimited, sqlloader);
+Connector handlers live one per file in onboarding/scripts/connectors/ (ad, delimited, sqlloader, jdbc, api, windows, linux);
 each connector has apps/ (app definitions) and data/ (feed files) in onboarding/connectors/<type>/.
 
 Usage

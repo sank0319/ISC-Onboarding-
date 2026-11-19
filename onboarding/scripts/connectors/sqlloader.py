@@ -1,5 +1,5 @@
 """SQL Loader connector: create the source from a template (schema + correlation predefined),
-upload the account feed with the load-accounts API (what the SailPoint File Upload Utility calls) and
+upload the account feed (File Upload Utility when ISC_UPLOAD_JAR is set, else the load-accounts API) and
 aggregate, then make entitlements requestable (L1 Manager -> L2 Source Owner)."""
 from common import deep_merge
 from connectors import Connector, register

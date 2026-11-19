@@ -14,7 +14,7 @@ on:
         options: [connectors, sources, source]
         default: connectors
       template:
-        description: "For 'source': which defaults.yaml block to print"
+        description: "For 'source': which connector template block to print (for onboarding/connectors/<type>/<type>-template.yaml)"
         type: choice
         options: [sqlloader, jdbc, api, windows, linux]
         default: sqlloader

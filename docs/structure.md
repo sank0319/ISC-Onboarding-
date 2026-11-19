@@ -28,7 +28,7 @@ onboarding/
 docs/examples/                     batch-01.yaml (example, outside the default glob), apps.csv, sample feeds
 ```
 
-`sqlloader/` exists as a skeleton (`apps/wave-1`, `apps/wave-2`, `data/`) with an inactive sample, `apps/wave-1/sample-sqlloader.yaml.example`, and its own README; it needs the real connector settings in `defaults.yaml` before it validates. `ad/` is created with its first real app (git does not keep empty folders).
+`sqlloader/` exists as a skeleton (`apps/wave-1`, `apps/wave-2`, `data/`) with an inactive sample, `apps/wave-1/sample-sqlloader.yaml.example`, and its own README; it needs the real connector settings in `defaults.yaml` before it validates. `ad/` has no waves; its `data/sandbox/` and `data/production/` folders are created with `.gitkeep` files, and its first real app is still to come.
 
 ## Notes -> decisions
 

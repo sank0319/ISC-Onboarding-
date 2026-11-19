@@ -1,11 +1,11 @@
 # JDBC sample app with made-up hosts (example.invalid never resolves). Inactive: the default glob only reads *.yaml.
-# Activate: finish onboarding/connectors/jdbc/README.md (real connector script name + cluster ID in defaults.yaml),
+# Activate: finish onboarding/connectors/jdbc/README.md (real connector script name + cluster ID in jdbc-template.yaml),
 # point url/user at a real database, then rename to <your-app>.yaml.
 apps:
   - appName: Sample-Jdbc-App
     connectorType: jdbc
     owner: Sanson.Seah
-    template: default                  # jdbcTemplates.<template> in onboarding/config/defaults.yaml
+    template: default                  # jdbcTemplates.<template> in onboarding/connectors/jdbc/jdbc-template.yaml
     application: Sample JDBC App
     jdbc:
       connectorAttributes:             # merged onto the template's connectorAttributes (no passwords here)

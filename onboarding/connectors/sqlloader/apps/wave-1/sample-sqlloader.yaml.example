@@ -5,7 +5,7 @@ apps:
   - appName: Sample-SqlLoader-App
     connectorType: sqlloader
     owner: Sanson.Seah                 # identity alias (or e-mail) of the application owner
-    template: default                  # sqlLoaderTemplates.<template> in onboarding/config/defaults.yaml
+    template: default                  # sqlLoaderTemplates.<template> in onboarding/connectors/sqlloader/sqlloader-template.yaml
     application: Sample SqlLoader App
     sqlloader:
       accountFile: onboarding/connectors/sqlloader/data/{env}/Sample-SqlLoader-App.csv   # uploaded via load-accounts

@@ -6,4 +6,4 @@ aggregationTimeoutMinutes: 30
 clusterId: ""                          # VA cluster ID, only for connectors that run on a VA (not needed for Delimited File)
 
 # Connector-specific settings and templates live next to each connector, in
-# onboarding/connectors/<type>/template.yaml. They are merged in when this file is loaded; a value set here wins.
+# onboarding/connectors/<type>/<type>-template.yaml. They are merged in when this file is loaded; a value set here wins.
